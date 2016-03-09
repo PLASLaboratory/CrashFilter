@@ -1,0 +1,20 @@
+package Loc;
+
+import com.google.security.zynamics.binnavi.API.gui.LogConsole;
+
+public class Loc_Value extends Loc {
+
+	int value;
+	
+	public Loc_Value(LocType locType) {
+		super(locType);
+		// TODO Auto-generated constructor stub
+	}
+	public Loc_Value(LocType locType, int val) {
+		super(locType);
+		this.value = val;
+
+		
+		// TODO Auto-generated constructor stub
+	}
+}

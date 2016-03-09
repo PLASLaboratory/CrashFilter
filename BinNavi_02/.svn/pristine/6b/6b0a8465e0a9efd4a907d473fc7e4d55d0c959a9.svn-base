@@ -1,0 +1,197 @@
+package Loc;
+
+import helper.AddressTransferHelper;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import com.google.security.zynamics.binnavi.API.gui.LogConsole;
+import com.google.security.zynamics.binnavi.API.reil.OperandType;
+import com.google.security.zynamics.binnavi.API.reil.ReilInstruction;
+import com.google.security.zynamics.binnavi.API.reil.ReilOperand;
+import com.google.security.zynamics.binnavi.API.reil.mono.ILatticeGraph;
+import com.google.security.zynamics.binnavi.API.reil.mono.InstructionGraphNode;
+
+import data.ReilInstIndex;
+
+public class VS4 {
+
+	private ILatticeGraph<InstructionGraphNode> reilGraph ;
+	Map<Loc,Loc> abstractLocation ;	
+	int count;
+	private final static Map<String, ReilInstIndex> instStringToInstValue = new HashMap<String, ReilInstIndex>();
+	static {
+		instStringToInstValue.put("add", ReilInstIndex.ADD);
+		instStringToInstValue.put("and", ReilInstIndex.AND);
+		instStringToInstValue.put("bisz", ReilInstIndex.BISZ);
+		instStringToInstValue.put("bsh", ReilInstIndex.BSH);
+		instStringToInstValue.put("div", ReilInstIndex.DIV);
+		instStringToInstValue.put("jcc", ReilInstIndex.JCC);
+		instStringToInstValue.put("ldm", ReilInstIndex.LDM);
+		instStringToInstValue.put("mod", ReilInstIndex.MOD);
+		instStringToInstValue.put("mul", ReilInstIndex.MUL);
+		instStringToInstValue.put("nop", ReilInstIndex.NOP);
+		instStringToInstValue.put("or", ReilInstIndex.OR);
+		instStringToInstValue.put("stm", ReilInstIndex.STM);
+		instStringToInstValue.put("str", ReilInstIndex.STR);
+		instStringToInstValue.put("sub", ReilInstIndex.SUB);
+		instStringToInstValue.put("undef", ReilInstIndex.UNDEF);
+		instStringToInstValue.put("unkn", ReilInstIndex.UNKNOWN);
+		instStringToInstValue.put("xor", ReilInstIndex.XOR);
+	}
+	
+	public VS4(ILatticeGraph<InstructionGraphNode> graph)
+	{
+		reilGraph = graph;
+		abstractLocation = new HashMap<Loc,Loc>();	
+		init();
+	}
+	private void init()
+	{
+		Loc esp = new Loc_StackVal(LocType.Stack_Val,"esp",0);
+		Loc stack = new Loc_StackVal(LocType.Stack_Val,"stack",0);
+		
+		abstractLocation.put(esp, stack);
+		count=0;
+	}
+	public void analysis()
+	{
+		LogConsole.log("---------Start-----------\n");
+		for (InstructionGraphNode inst : reilGraph.getNodes())
+		{
+			if(inst.getInstruction().getAddress().toLong()% 0x100 == 0)
+			{
+				deleteTempRegster();
+			}
+			LogConsole.log(inst.getInstruction().toString()+"\n");
+			
+			operation(inst.getInstruction());
+			
+			print();
+			
+			LogConsole.log("--------------------\n");
+		}
+		
+		deleteTempRegster();
+		print();
+		LogConsole.log("-----------end---------\n");
+	}
+
+	public void print()
+	{
+
+	}
+	
+
+	
+
+	public void operation(ReilInstruction inst)
+	{
+		ReilOperand op1 = inst.getFirstOperand();
+		ReilOperand op2 = inst.getSecondOperand();
+		ReilOperand op3 = inst.getThirdOperand();
+		
+		Loc op1Loc;
+		Loc op2Loc;
+		Loc op3Loc;
+		
+		Loc tempKey;
+		Loc tempValue;
+		Loc temp;
+		switch (instStringToInstValue.get(inst.getMnemonic())) {
+			case ADD: // addition
+
+				break;
+			case AND: // binary and
+
+				break;
+			case BISZ: // boolean is zero
+				break;
+			case BSH: // binary shift
+				break;
+			case DIV: // unsigned division
+				break;
+			case JCC:
+				break;
+			case LDM:
+				if(true)
+				{
+
+				}
+			case MUL: // unsigned multiplication
+			case NOP: // no operation
+			case OR: // bitwise Or
+				break;
+			case STM: // store to memory
+
+				
+				break;
+			case STR: // store to register
+
+			case SUB: // subtract
+				
+				
+			case UNDEF:
+			case UNKNOWN: // unknown operation ( placeholder instruction )
+				break;
+			case XOR:
+			default: // Exception
+				break;
+		}
+
+	}
+	
+	private Loc makeLoc(ReilOperand operand, int c1,int c2)
+	{
+		Loc result;
+		if( operand.getType() == OperandType.REGISTER )
+		{
+			String reg = operand.getValue();
+			if(reg.equals("esp") ||reg.equals("ebp"))
+			{
+				result = new Loc_StackVal(LocType.Stack_Val,reg,0);
+			}
+			else
+			{
+				result = new Loc_RegValVal(LocType.Reg_Val_Val,reg,0,0);
+			}
+		}
+		else if(operand.getType().equals(OperandType.INTEGER_LITERAL))
+		{
+			int value = AddressTransferHelper.hexString2Int(operand.getValue());
+			result = new Loc_Value(LocType.Val, value);
+		}
+		else 
+		{
+			result = new Loc(LocType.Unknown);
+		}
+		return result;
+	}
+	
+	private Loc subOperation(ReilOperand op1, ReilOperand op2)
+	{
+		return null;
+	}
+	private Loc searchKey(Loc inputLoc)
+	{
+		//esp != esp+[4,4]
+		//but both esp and esp+4 is in stack......
+		
+		
+		return null;
+	}
+	
+	private boolean hasRegisterInKey(ReilOperand reilOperand)
+	{
+		boolean result = false;
+		
+
+		return result;
+	}
+	private void deleteTempRegster()
+	{
+
+	}
+
+
+}

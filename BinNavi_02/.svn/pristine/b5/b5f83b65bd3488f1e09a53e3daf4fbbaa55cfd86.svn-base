@@ -1,0 +1,82 @@
+package crashfilter.va.MLocAnalysis;
+
+import com.google.security.zynamics.binnavi.API.gui.LogConsole;
+import com.google.security.zynamics.binnavi.API.reil.mono.ILatticeElement;
+import com.google.security.zynamics.binnavi.API.reil.mono.InstructionGraphNode;
+
+import crashfilter.va.MLocAnalysis.RTable.RTable;
+import crashfilter.va.MLocAnalysis.env.Env;
+
+public class MLocLatticeElement implements ILatticeElement<MLocLatticeElement>{
+	private InstructionGraphNode inst;
+	private Env env;
+	private RTable rTable;
+	//getter & setter
+	public MLocLatticeElement()
+	{
+		env = new Env();
+		rTable = new RTable();
+	}
+	public Env getEnv()
+	{
+		return this.env;
+	}
+	public void setEnv(Env env)
+	{
+		this.env = env;
+	}
+	public RTable getRTable()
+	{
+		return this.rTable;
+	}
+	public void setRTable(RTable rTable)
+	{
+		this.rTable = rTable;
+	}
+	public void setInst(InstructionGraphNode inst)
+	{
+		this.inst = inst;
+	}
+	public InstructionGraphNode getInst()
+	{
+		return inst;
+	}
+	public void combine( MLocLatticeElement mLocLatticeElement)
+	{
+		LogConsole.log("combine__ 1\n");
+		env = env.combine(mLocLatticeElement.env);
+		LogConsole.log("combine__ 2\n");
+		rTable = rTable.combine(mLocLatticeElement.rTable);
+		LogConsole.log("combine__ 3\n");
+	}
+
+	@Override
+	public boolean equals(MLocLatticeElement mLocLatticeElement) {
+		if(this==null || mLocLatticeElement==null)
+		{
+			return false;
+		}
+		LogConsole.log("equals 1\n");
+		boolean returnValue = env.equals(mLocLatticeElement.env)&&rTable.equals(mLocLatticeElement.rTable); 
+		LogConsole.log("equals 2\n");
+		LogConsole.log("equals 3"+returnValue+"\n");
+		return returnValue;
+	}
+
+	@Override
+	public boolean lessThan(MLocLatticeElement mLocLatticeElement) {
+		LogConsole.log("lessThan 1\n");
+		boolean returnValue = env.lessthan(mLocLatticeElement.env)||rTable.lessthan(mLocLatticeElement.rTable);
+		LogConsole.log("lessthan 2 env  "+env.lessthan(mLocLatticeElement.env)+"\n");
+		
+		LogConsole.log("lessthan 3 rtable  "+rTable.lessthan(mLocLatticeElement.rTable)+"\n");
+/*		
+		LogConsole.log("--  rrrrrrrrrr 1 -- \n");
+		rTable.printRTable();
+		LogConsole.log("--  rrrrrrrrr 2 -- \n");
+		mLocLatticeElement.rTable.printRTable();
+		*/
+		return returnValue;
+	}                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
+	
+}

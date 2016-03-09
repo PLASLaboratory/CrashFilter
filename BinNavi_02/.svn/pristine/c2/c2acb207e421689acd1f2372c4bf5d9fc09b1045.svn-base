@@ -1,0 +1,236 @@
+package staticAnalysis;
+import java.io.Console;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.Stack;
+
+//import DefUseChain;
+
+
+
+
+
+
+
+import com.google.security.zynamics.binnavi.API.disassembly.Address;
+import com.google.security.zynamics.binnavi.API.disassembly.Function;
+import com.google.security.zynamics.binnavi.API.disassembly.Instruction;
+import com.google.security.zynamics.binnavi.API.gui.LogConsole;
+import com.google.security.zynamics.binnavi.API.reil.ReilHelpers;
+import com.google.security.zynamics.binnavi.API.reil.ReilInstruction;
+import com.google.security.zynamics.binnavi.API.reil.ReilOperand;
+import com.google.security.zynamics.binnavi.API.reil.mono.InstructionGraphNode;
+
+import data.ReilInstructionResolve;
+
+
+public class ExploitableAnalysis {
+	List<DefUseChain.DefUseGraph> duGraphs;
+	Function func;
+	Map<DefUseChain.DefUseNode, List<DefUseChain.DefUseNode>> exploitReilPaths =
+			new HashMap<DefUseChain.DefUseNode, List<DefUseChain.DefUseNode>>();
+	Map<Instruction, List<Instruction>> exploitArmPaths =
+			new HashMap<Instruction, List<Instruction>>();
+	
+	String crashAddr;	
+	int e_count=0;
+	int pe_count =0;
+	
+	public ExploitableAnalysis(List<DefUseChain.DefUseGraph> duGraphs, Function func, Long crashAddr){
+		this.duGraphs = duGraphs;
+		this.func = func;
+		this.crashAddr = Long.toHexString(crashAddr);
+	}
+	
+	public Map<Instruction, List<Instruction>> getExploitArmPaths(){
+		return exploitArmPaths;
+	}
+	
+	public Map<DefUseChain.DefUseNode, List<DefUseChain.DefUseNode>> getExploitReilPaths(){
+		return exploitReilPaths;
+	}
+	
+	private Instruction toArmInstruction(DefUseChain.DefUseNode duNode){
+		Instruction inst = ReilInstructionResolve.findNativeInstruction(
+				func,
+				ReilHelpers.toNativeAddress(duNode.getInst().getInstruction().getAddress())
+				);
+		
+		return inst;
+			
+	}
+	
+	public void projectReilExploitToArmExploit(){
+		for(DefUseChain.DefUseNode duNode : exploitReilPaths.keySet()){
+			
+			Instruction exploitPoint = toArmInstruction(duNode);
+			List<Instruction> armPath = new ArrayList<Instruction>();
+			
+			for(DefUseChain.DefUseNode node : exploitReilPaths.get(duNode)){
+				// LogConsole.log(node.getInst().toString()+"\n");
+				Instruction armInst = toArmInstruction(node);
+				if(!armPath.contains(armInst)){
+					armPath.add(armInst);
+				}
+			}
+			
+			//Filtering the duplicated Path
+			//It is because we analyze every each REIL instruction that is translated from one ARM instuction
+			if(exploitArmPaths.isEmpty()){
+				exploitArmPaths.put(exploitPoint, armPath);
+			}
+			else{
+				boolean isContain = false;
+				for(Instruction inst : exploitArmPaths.keySet()){
+					if(exploitArmPaths.get(inst).containsAll(armPath) && armPath.containsAll(exploitArmPaths.get(inst))){
+						isContain = true;
+					}
+				}
+				if(!isContain){
+					exploitArmPaths.put(exploitPoint, armPath);
+				}
+			}
+		}
+	}
+	
+	public boolean isExploitable(){
+		//Find exploitable points and paths
+		searchExploitablePoint();
+		projectReilExploitToArmExploit();
+		if(exploitReilPaths.isEmpty()){
+			return false;
+		}
+		
+		return true;
+	}
+	
+	
+	private boolean isDefUsedInAddressToBranch (InstructionGraphNode use, InstructionGraphNode def){
+		if(ReilHelpers.isRegister(use.getInstruction().getThirdOperand())){
+			for( ReilOperand op : ReilInstructionResolve.resolveReilInstructionDest(def)){
+				if(use.getInstruction().getThirdOperand().getValue().equals(op.getValue())){
+					return true;
+				}
+			}
+			return false;
+		}
+		else
+			return false;
+		
+	}
+	
+	private boolean isDefUsedInAddressToStore (InstructionGraphNode use, InstructionGraphNode def){
+		if(ReilHelpers.isRegister(use.getInstruction().getThirdOperand())){
+			for( ReilOperand op : ReilInstructionResolve.resolveReilInstructionDest(def)){
+				if(use.getInstruction().getThirdOperand().getValue().equals(op.getValue())){
+					return true;
+				}
+			}
+			return false;
+		}
+		else
+			return false;
+	}
+	
+	private boolean isDefUsedInDataToStore (InstructionGraphNode use, InstructionGraphNode def){
+		if(ReilHelpers.isRegister(use.getInstruction().getFirstOperand())){
+			for( ReilOperand op : ReilInstructionResolve.resolveReilInstructionDest(def)){
+				if(use.getInstruction().getFirstOperand().getValue().equals(op.getValue())){
+					return true;
+				}
+			}
+			return false;
+		}
+		else
+			return false;
+	}
+	
+	//to check the parents ---------------------------------------------------------------------
+	private boolean isExploitableInstruction(DefUseChain.DefUseNode node){
+		ReilInstruction inst = node.getInst().getInstruction();
+		if(inst.getMnemonic().equals("jcc")){
+			for(DefUseChain.DefUseNode duNode : node.getParents()){
+				if(isDefUsedInAddressToBranch(node.getInst(), duNode.getInst())){
+					LogConsole.log("E  - jcc\n");
+					e_count++;
+					return true;
+				}
+			}
+			return false;
+		}
+		
+		else if( inst.getMnemonic().equals("stm")){
+			for(DefUseChain.DefUseNode duNode : node.getParents()){
+				if(isDefUsedInAddressToStore(node.getInst(), duNode.getInst())){
+					if(isDefUsedInDataToStore(node.getInst(), duNode.getInst())){
+						LogConsole.log("E - stm addr & data \n");
+						e_count++;
+						return true;	//Exploitable
+					}
+					LogConsole.log("PE - stm address\n");
+					pe_count++;
+					return true;		//Probably Exploitable
+				}
+				else if(isDefUsedInDataToStore(node.getInst(), duNode.getInst())){
+					LogConsole.log("PE - stm data\n");
+					pe_count++;
+					return true;
+				}
+			}
+			return false;
+		}
+		
+		else
+			return false;
+		
+	}
+	
+	
+	private void searchExploitablePoint(){
+		//All the graphs is analyzed at this function
+		e_count =0;
+		pe_count =0;
+		for(DefUseChain.DefUseGraph duGraph : duGraphs){
+			Stack<DefUseChain.DefUseNode> stackDFS = new Stack<DefUseChain.DefUseNode>();
+			Set<DefUseChain.DefUseNode> visitedNodes = new HashSet<DefUseChain.DefUseNode>(); 
+			//We find all possible exploitable instruction in this function
+			//We consider the possibility in detail after this process
+			//Depth First Search Algorithm
+			searchExploitableDFS(stackDFS, visitedNodes, duGraph.getNodes().get(0));
+		}
+		LogConsole.log("crashAddr  : " + crashAddr+"\n");
+		LogConsole.log("e  : " + e_count+"\n");
+		LogConsole.log("pe : " + pe_count+"\n");
+	}
+
+	
+	private void searchExploitableDFS(
+			Stack<DefUseChain.DefUseNode> stackDFS,
+			Set<DefUseChain.DefUseNode> visitedNode,
+			DefUseChain.DefUseNode duNode){
+		
+		//current node processing
+		visitedNode.add(duNode);
+		stackDFS.push(duNode);
+		if(isExploitableInstruction(duNode)){
+			List<DefUseChain.DefUseNode> exploitPath = new ArrayList<DefUseChain.DefUseNode>();
+			exploitPath.addAll(stackDFS);
+			exploitReilPaths.put(duNode, exploitPath);
+		}
+		
+		//children iteration
+		for( DefUseChain.DefUseNode node : duNode.getChildren()){
+			
+			if(!visitedNode.contains(node)){
+				searchExploitableDFS(stackDFS, visitedNode, node);
+			}
+		}
+		
+		stackDFS.pop();
+	}
+
+}

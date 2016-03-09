@@ -1,0 +1,97 @@
+package virtualStack;
+
+import com.google.security.zynamics.binnavi.API.gui.LogConsole;
+
+public class Aloc
+{
+	String reg;
+	Range firstRange;
+	Range secondRange;
+	int depth=0;		//default depth=0 -> 
+	
+	public Aloc(String r)
+	{
+		this.reg = r ;
+		this.firstRange = new Range("0","0");
+		this.secondRange = new Range("0","0");
+	}
+	public Aloc(String r, int d)
+	{
+		this.reg = r ;
+		this.firstRange = new Range("0","0");
+		this.secondRange = new Range("0","0");
+		this.depth =d;
+	}
+	public Aloc(String r , String min, String max)
+	{
+		this.reg = r ;
+		this.firstRange = new Range(min,max);
+		this.secondRange = new Range("0","0");
+	}
+	public Aloc(String r , String min, String max, int d)
+	{
+		this.reg = r ;
+		this.firstRange = new Range(min,max);
+		this.secondRange = new Range("0","0");
+		this.depth =d;
+	}
+	public Aloc(String r , String min1, String max1, String min2, String max2)
+	{
+		this.reg = r ;
+		this.firstRange = new Range(min1,max1);
+		this.secondRange = new Range(min2,max2);
+	}
+	public Aloc(String r , String min1, String max1, String min2, String max2, int d)
+	{
+		this.reg = r ;
+		this.firstRange = new Range(min1,max1);
+		this.secondRange = new Range(min2,max2);
+		this.depth =d;
+	}
+	class Range
+	{
+		String min;
+		String max;
+				
+		Range(String min, String max)
+		{
+			this.min = min;
+			this.max = max;
+		}
+		void printRange()
+		{
+			LogConsole.log(" ["+min+","+max+"]");
+		}
+		@Override
+		public boolean equals(Object obj) {
+			Range r = (Range)obj;
+			return this.min.equals(r.min) && this.max.equals(r.max);
+		}
+		@Override
+		public String toString() {
+			// TODO Auto-generated method stub
+			if(min.equals("0")&&max.equals("0"))
+			{
+				return "";
+			}
+			else
+			{
+				return " ["+min+","+max+"]";
+			}
+		}
+	}
+	@Override
+	public String toString() {
+		// TODO Auto-generated method stub
+		return reg+" + "+firstRange.toString()+secondRange.toString();
+	}
+	void printAloc()
+	{
+		LogConsole.log(reg+" ");
+		LogConsole.log("+");
+		firstRange.printRange();
+		LogConsole.log("+");
+		secondRange.printRange();
+		LogConsole.log("\n");
+	}
+}

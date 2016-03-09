@@ -1,0 +1,22 @@
+package Loc;
+
+import com.google.security.zynamics.binnavi.API.gui.LogConsole;
+
+
+public class Loc_StackVal extends Loc{
+
+	String stackReg;
+	int value1;
+	
+	public Loc_StackVal(LocType locType) {
+		super(locType);
+		// TODO Auto-generated constructor stub
+	}
+	public Loc_StackVal(LocType locType, String reg, int val) {
+		super(locType);
+		this.stackReg = reg;
+		this.value1 = val;
+		// TODO Auto-generated constructor stub
+	}
+
+}

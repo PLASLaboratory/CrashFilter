@@ -1,0 +1,47 @@
+package virtualStack;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import com.google.security.zynamics.binnavi.API.reil.ReilInstruction;
+import com.google.security.zynamics.binnavi.API.reil.mono.InstructionGraphNode;
+
+public class VirtualStack {
+	
+	public VirtualStack()
+	{
+		VSLatticeElement vsElement= new VSLatticeElement();
+	}
+	public class VSLatticeElement
+	{
+		Map<String, String> virtualStack;
+		InstructionGraphNode curInstruction;
+		
+		public VSLatticeElement()
+		{
+			virtualStack = new HashMap<String, String>();
+		}
+		public void insertVirtualStack(String register , String offset)
+		{
+			virtualStack.put(register, offset);
+		}
+		public void deleteVirtualStack(String register)
+		{
+			virtualStack.remove(register);
+		}
+		public boolean IsSrcInVirtualStack(ReilInstruction ri)
+		{
+			String src = ri.getFirstOperand().toString();
+			return virtualStack.containsKey(src);
+		}
+		public boolean IsDestInVirtualStack(ReilInstruction ri)
+		{
+			String dest = ri.getThirdOperand().toString();
+			return virtualStack.containsKey(dest);
+		}
+		public void setCurInstruction(InstructionGraphNode isgn)
+		{
+			this.curInstruction=isgn;
+		}
+	}
+}

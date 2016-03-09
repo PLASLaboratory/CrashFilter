@@ -1,0 +1,10 @@
+package Loc;
+
+public class Loc {
+	LocType locType;
+	
+	Loc(LocType locType){
+		this.locType = locType;
+	}
+	
+}

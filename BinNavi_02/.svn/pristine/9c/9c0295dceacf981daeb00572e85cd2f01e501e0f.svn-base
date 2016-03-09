@@ -1,0 +1,94 @@
+package helper;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import com.google.security.zynamics.binnavi.API.disassembly.Address;
+import com.google.security.zynamics.binnavi.API.reil.OperandSize;
+import com.google.security.zynamics.binnavi.API.reil.ReilBlock;
+import com.google.security.zynamics.binnavi.API.reil.ReilEdge;
+import com.google.security.zynamics.binnavi.API.reil.ReilFunction;
+import com.google.security.zynamics.binnavi.API.reil.ReilGraph;
+import com.google.security.zynamics.binnavi.API.reil.ReilInstruction;
+import com.google.security.zynamics.binnavi.API.reil.ReilOperand;
+
+public class CrashSourceDef {
+	
+	private static ReilInstruction makeReilInstruction(Long address, String operandName)
+	{
+		Address testAddr = new Address(0x7c1c2004);			
+		ReilOperand operand0 = new ReilOperand(OperandSize.OPERAND_SIZE_BYTE, "EMPTY");
+		ReilOperand operand1 = new ReilOperand(OperandSize.OPERAND_SIZE_BYTE, "EMPTY");
+		ReilOperand operand2 = new ReilOperand(OperandSize.OPERAND_SIZE_BYTE, operandName);
+		ReilInstruction test = new ReilInstruction(testAddr, "str", operand0, operand1, operand2);
+		
+		return test;
+	}
+	public static ReilGraph addCrashSource(ReilFunction curReilFunc , Long crashPointAddress)
+	{
+	//	ReilGraph tempReilGraph = new ReilGraph();
+		//graph = InstructionGraph.create(curReilFunc.getGraph());
+		
+		ReilGraph reilGraph = curReilFunc.getGraph();
+		List<ReilBlock> reilBlockList = reilGraph.getNodes();
+		
+		int blockCnt = 0;
+		int instCnt = 0;
+		int blockNum;
+		int instNum;
+		
+		
+		List<ReilInstruction> saveInstList = null;
+		List<ReilBlock> saveBlock = new ArrayList<ReilBlock>();
+		for(ReilBlock reilBlock : reilBlockList)
+		{				
+			int numOfSrc = 0;
+			instCnt = 0;
+			List<ReilInstruction> reilInstList = reilBlock.getInstructions();
+			for(ReilInstruction reilInst : reilInstList)
+			{
+				Long reilAddr = reilInst.getAddress().toLong();
+				if(reilAddr%0x100 ==0 && reilAddr/0x100 == crashPointAddress)
+				{
+					numOfSrc++;
+					ReilInstruction test = makeReilInstruction(reilAddr - numOfSrc, reilInst.getFirstOperand().getValue());
+							
+					blockNum = blockCnt;
+					instNum = instCnt;
+					System.out.println("insert : " +reilInst);
+					System.out.println("         " +test);
+					
+					List<ReilInstruction> tempInstList=  reilBlock.getInstructions();
+					tempInstList.add(instCnt, test);
+					saveInstList = tempInstList;
+					reilBlock = new ReilBlock(saveInstList);
+					
+				}
+				instCnt++;
+			}
+			saveBlock.add(reilBlock);
+			blockCnt++;
+		}
+		
+		ReilGraph curReilGraph = curReilFunc.getGraph();
+		List<ReilBlock> reilBlocks = curReilGraph.getNodes();
+		List<ReilEdge> reilEdges = curReilGraph.getEdges();
+		
+		ReilGraph tempGraph = new ReilGraph(saveBlock, reilEdges);
+			
+		
+		reilBlocks = tempGraph.getNodes();
+		for(ReilBlock block: reilBlocks)
+		{
+			List<ReilInstruction> instructions = block.getInstructions();
+			for(ReilInstruction inst : instructions)
+			{
+				System.out.println(inst);
+			}
+		}
+		
+		return tempGraph;
+	}
+	
+	
+}

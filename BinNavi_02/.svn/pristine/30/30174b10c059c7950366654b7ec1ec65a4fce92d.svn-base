@@ -1,0 +1,35 @@
+package crashfilter.va.env;
+
+import java.util.List;
+
+import com.google.security.zynamics.binnavi.API.reil.mono.IInfluencingState;
+import com.google.security.zynamics.binnavi.API.reil.mono.ILattice;
+
+public class EnvLattice implements ILattice<EnvLatticeElement, Object>{
+
+	@Override
+	public EnvLatticeElement combine(
+		List<IInfluencingState<EnvLatticeElement, Object>> states) {
+			
+		EnvLatticeElement combinedState = new EnvLatticeElement();
+		
+		//Union all the predecessor's state
+		
+		if(states.size() >1 )
+		{
+			
+/* for print
+ 			System.out.println("size : " +states.size());
+			for ( IInfluencingState<EnvLatticeElement, Object> state : states ){
+				System.out.println("\t"+state.getElement().getInst().getInstruction());
+			}
+*/
+		}
+		for ( IInfluencingState<EnvLatticeElement, Object> state : states ){
+			combinedState.combine(state.getElement());				
+		}
+		
+		return combinedState;
+	}
+
+}

@@ -1,0 +1,61 @@
+package crashfilter.va.env;
+
+import java.util.Set;
+
+import com.google.security.zynamics.binnavi.API.gui.LogConsole;
+import com.google.security.zynamics.binnavi.API.reil.mono.ILatticeElement;
+import com.google.security.zynamics.binnavi.API.reil.mono.InstructionGraphNode;
+
+import crashfilter.va.regs.IRegister;
+
+public class LocLatticeElement implements ILatticeElement<LocLatticeElement>{
+	private InstructionGraphNode inst;
+	private RTable rtable;
+
+	
+	
+	public LocLatticeElement()
+	{
+		rtable = new RTable();
+	}
+	
+	public void setRTable(RTable rtable)
+	{
+		this.rtable = rtable;
+	}
+	public void setInst(InstructionGraphNode inst)
+	{
+		this.inst = inst;
+	}
+	
+	public RTable getRTable()
+	{
+		return this.rtable;
+	}
+	
+	public void combine( LocLatticeElement loc)
+	{		
+		this.inst = loc.inst;		
+		RTable combinedRTable = rtable.combine(loc.rtable);
+		this.rtable = combinedRTable;
+		
+	}
+	
+	@Override
+	public boolean equals(LocLatticeElement obj) {
+		Boolean bool;
+		RTable r1 = this.rtable;
+		RTable r2 = obj.rtable;
+		
+		bool = r1.equals(r2);
+		//LogConsole.log(" LLE equals : "+bool+"\n");
+		return bool;
+	}
+
+	@Override
+	public boolean lessThan(LocLatticeElement locElement) {
+		return this.rtable.lessthan(locElement.rtable);
+	}
+	
+	
+}

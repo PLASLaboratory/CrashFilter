@@ -1,0 +1,26 @@
+package crashfilter.va.env;
+
+import java.util.List;
+
+import staticAnalysis.ReachingDefinitionAnalysis.RDLatticeElement;
+
+import com.google.security.zynamics.binnavi.API.reil.mono.IInfluencingState;
+import com.google.security.zynamics.binnavi.API.reil.mono.ILattice;
+
+public class LocLattice implements ILattice<LocLatticeElement, Object>{
+
+	@Override
+	public LocLatticeElement combine(	List<IInfluencingState<LocLatticeElement, Object>> states) 
+	{		
+		LocLatticeElement combinedState = new LocLatticeElement();
+		
+		//Union all the predecessor's state
+		for ( IInfluencingState<LocLatticeElement, Object> state : states ){
+			combinedState.combine(state.getElement());				
+		}
+		
+		return combinedState;
+		
+	}
+
+}
