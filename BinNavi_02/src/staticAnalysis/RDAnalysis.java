@@ -150,9 +150,6 @@ public class RDAnalysis {
 				) {
 
 			
-			long crashSourceInstAddr = CrashSourceAdder.getInstruction(graph, crashAddr).getInstruction().getAddress().toLong();
-			long nextAddr = CrashSourceAdder.getNextAddrOfCrash(graph, crashAddr);
-			long nowAddr = node.getInstruction().getAddress().toLong();
 			//each InstructionGraphNodes like LDM and STM, we can resolve the memory access operand using value-set analysis result
 			RDLatticeElement transformedState = new RDLatticeElement();
 						

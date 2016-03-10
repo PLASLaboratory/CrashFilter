@@ -56,20 +56,24 @@ public class AnalysisStartThread implements IProgressThread {
 	private String crashAddr=""; //HyeonGu 15.4.21
 	boolean singleCrashCheck = false;
 	boolean memoryAnalysisCheck = false;
-	
+	boolean crashSrcAnalysis = false;
 	
 	public AnalysisStartThread(PluginInterface m_plugin, File crachFolder,
-			Module module , String crashAddr, boolean singleCrashCheck, boolean memoryAnalysisCheck) {
+			Module module , String crashAddr, int optionalCode) {
 		super();
 		this.module = module;
 		System.out.println(module.getFilebase());
 		this.m_pluginInterface = m_plugin;
-		this.crashFolder = crachFolder;
+		this.crashFolder = crachFolder;				
 		this.crashAddr = crashAddr;
-		this.singleCrashCheck = singleCrashCheck;
-		this.memoryAnalysisCheck = memoryAnalysisCheck;
+		decodeOptioalCode(optionalCode);
 	}
-
+	private void decodeOptioalCode(int code)	{
+		singleCrashCheck = (code & 1) == 1;
+		memoryAnalysisCheck = (code & 10) == 10;
+		crashSrcAnalysis = (code & 100) == 100;
+		
+	}
 	@Override
 	public boolean close() {
 		// TODO Auto-generated method stub
@@ -103,7 +107,7 @@ public class AnalysisStartThread implements IProgressThread {
 			}
 			else
 			{
-				LogConsole.log("error multi crash check \n");
+				LogConsole.log("error multi crash check1 \n");
 				return;
 			}
 		} else {
@@ -114,7 +118,7 @@ public class AnalysisStartThread implements IProgressThread {
 			}
 			else
 			{
-				LogConsole.log("error single crash check \n");
+				LogConsole.log("error single crash check2 \n");
 				return;
 			}
 			
@@ -360,20 +364,19 @@ public class AnalysisStartThread implements IProgressThread {
 /***********MLocAnalysis_RTable+Env ********************/			
 			if(memoryAnalysisCheck)
 			{				
-				memoryAnalysis(graph, curFunc, mLocResult);				
+				mLocResult = memoryAnalysis(graph, curFunc, mLocResult);				
 			}
 /*******************************************************/
 			
 			System.out.println("== start EEEEEEEEEEEEEEE ==\n");
 			RDAnalysis rda = new RDAnalysis(graph, crashPointAddress);
-			RDResult = rda.RDAnalysis();
-			
-	
+			RDResult = rda.RDAnalysis();	
 			LogConsole.log("== end rd analysis ==\n");
 			
 
 			LogConsole.log("==start du analysis  1==\n");
-			DefUseChain du = new DefUseChain(RDResult, graph, crashPointAddress);
+			DefUseChain du = new DefUseChain(RDResult, graph, crashPointAddress, crashSrcAnalysis);
+			
 			du.setMemoryResult(mLocResult);
 			du.defUseChaining();
 			
@@ -441,7 +444,7 @@ public class AnalysisStartThread implements IProgressThread {
 	
 
 
-	private void memoryAnalysis(ILatticeGraph<InstructionGraphNode> graph, Function curFunc,
+	private IStateVector<InstructionGraphNode, MLocLatticeElement> memoryAnalysis(ILatticeGraph<InstructionGraphNode> graph, Function curFunc,
 			IStateVector<InstructionGraphNode, MLocLatticeElement> mLocResult) throws MLocException {
 		// TODO Auto-generated method stub
 		LogConsole.log("== start locAnalysis analysis ==\n");
@@ -463,7 +466,8 @@ public class AnalysisStartThread implements IProgressThread {
 		//envAnalysis.printEnv(envResult);
 		//LogConsole.log("== end print env analysis ===\n");
 		
-		
+		return mLocResult;
+	
 	}
 
 

@@ -36,11 +36,12 @@ public class BinDialog extends JDialog {
 	private String crashAddr = null;					
 	private TextField tf = new TextField("crashAddr");
 	private Checkbox memoryAnalysisCheck = new Checkbox("memoryAnalysis",true);			
-	
-	//
+	private Checkbox crashSrcAnalysisCheck = new Checkbox("crashSrcAnalysis",true);	
 	private Checkbox singleCrashCheck = new Checkbox("singleCrash", true); 	
 	private Checkbox vsaCheck = new Checkbox("VSA", true); 	
 	
+	
+	int optionalCode = 0;
 	// Add, Start Listener
 	Module m;
 	PluginInterface p;
@@ -66,16 +67,34 @@ public class BinDialog extends JDialog {
 		filePanel.add(tf,BorderLayout.AFTER_LAST_LINE);		//HyeonGu 15.4.21
 		filePanel.add(singleCrashCheck, BorderLayout.WEST);
 		
-		add(memoryAnalysisCheck,BorderLayout.SOUTH);
+		
+		
+		checkerPanel.add(memoryAnalysisCheck, BorderLayout.NORTH);
+		checkerPanel.add(crashSrcAnalysisCheck, BorderLayout.SOUTH);
+		
 		add(filePanel, BorderLayout.NORTH);
 		add(topPanel, BorderLayout.CENTER);
-		add(checkerPanel);
+		add(checkerPanel, BorderLayout.SOUTH);
 		
 		setPreferredSize(new Dimension(800, 200));
 		pack();
+		
+		
 
 	}
 
+	
+	private int makeOptionalCode()
+	{
+		int code = 0;
+		
+		if(singleCrashCheck.getState()) code |= 1;
+		if(memoryAnalysisCheck.getState()) code |= 10;
+		if(crashSrcAnalysisCheck.getState()) code |= 100;
+		
+		
+		return code;
+	}
 	public boolean wasCancelled() {
 		return wasCancelled;
 	}
@@ -87,6 +106,7 @@ public class BinDialog extends JDialog {
 			super();
 			this.jd = jd;
 		}
+		
 
 		@Override
 		public void actionPerformed(ActionEvent arg0) {
@@ -103,7 +123,7 @@ public class BinDialog extends JDialog {
 			}
 
 			else if (arg0.getActionCommand().equals("START")) {
-
+				optionalCode = makeOptionalCode();
 				crashAddr = tf.getText();
 				if(!singleCrashCheck.getState())
 				{
@@ -115,11 +135,12 @@ public class BinDialog extends JDialog {
 
 				jd.dispose();
 				AnalysisStartThread analysisStartThread = new AnalysisStartThread(
-						BinDialog.this.p, BinDialog.this.f, BinDialog.this.m ,BinDialog.this.crashAddr, singleCrashCheck.getState(), memoryAnalysisCheck.getState());
+						BinDialog.this.p, BinDialog.this.f, BinDialog.this.m ,BinDialog.this.crashAddr, optionalCode);
 				ProgressDialog.show(null, "Analysis...", analysisStartThread);
 				//System.runFinalization();
 				return;
 			}
+			
 		}
 	}
 }

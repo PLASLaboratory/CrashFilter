@@ -29,6 +29,7 @@ public class DefUseChain {
 	ILatticeGraph<InstructionGraphNode> graph;
 	List<DefUseGraph> duGraphs = new ArrayList<DefUseGraph>();
 	IStateVector<InstructionGraphNode, MLocLatticeElement> mLocResult;
+	boolean crashSrcAnalysis = false; //if it is true , ver 1.2
 	long crashPointAddress = 0;
 	
 	public void setMemoryResult(	IStateVector<InstructionGraphNode, MLocLatticeElement> mLocResult) {
@@ -37,10 +38,11 @@ public class DefUseChain {
 	
 	public DefUseChain(
 			IStateVector<InstructionGraphNode, RDLatticeElement> rDResult,
-			ILatticeGraph<InstructionGraphNode> graph, Long crashPointAddress) {
+			ILatticeGraph<InstructionGraphNode> graph, Long crashPointAddress, boolean crashSrcAnalysis) {
 		this.RDResult = rDResult;
 		this.graph = graph;
 		this.crashPointAddress = crashPointAddress;
+		this.crashSrcAnalysis = crashSrcAnalysis;
 	}
 
 	private boolean isDefUsed(InstructionGraphNode def, InstructionGraphNode use) throws MLocException {
@@ -135,12 +137,18 @@ public class DefUseChain {
 
 		int count =0;
 		int count2 =0;
-		List<InstructionGraphNode> insts = CrashSourceAdder.getInstructionlist(graph, crashPointAddress);
+		
+		List<InstructionGraphNode> insts = graph.getNodes();
+		
+		if(crashSrcAnalysis)
+		{
+			insts = CrashSourceAdder.getInstructionlist(graph, crashPointAddress);
+		}
 		
 		for (InstructionGraphNode def : insts) {
 			uses = new ArrayList<InstructionGraphNode>();
-
-		
+			
+			
 			for (InstructionGraphNode use : graph.getNodes()) {
 				
 				Set<InstructionGraphNode> temp = RDResult.getState(use).getInstList();
