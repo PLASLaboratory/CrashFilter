@@ -58,6 +58,9 @@ public class AnalysisStartThread implements IProgressThread {
 	boolean memoryAnalysisCheck = false;
 	boolean crashSrcAnalysis = false;
 	
+	
+	int e_path_cnt = 0;
+	int pe_path_cnt = 0;
 	public AnalysisStartThread(PluginInterface m_plugin, File crachFolder,
 			Module module , String crashAddr, int optionalCode) {
 		super();
@@ -414,6 +417,9 @@ public class AnalysisStartThread implements IProgressThread {
 				}
 
 			}
+			e_path_cnt += ea.getTotal_e_count();
+			pe_path_cnt += ea.getTotal_pe_count();
+			
 			LogConsole.log("==========end Exploitable analysis ===========\n");
 			long after = System.currentTimeMillis();
 			long processingTime = after - before;
@@ -435,10 +441,19 @@ public class AnalysisStartThread implements IProgressThread {
 			if(crashFilteringResult.get(str).equals("PE")) pe_cnt++;
 			if(crashFilteringResult.get(str).equals("NE")) ne_cnt++;
 		}
+		
+		System.out.println("Exploitable Analysis");
 		System.out.println("E: "+e_cnt);
 		System.out.println("PE: "+pe_cnt);
 		System.out.println("NE: "+ne_cnt);
 		System.out.println("total: "+(e_cnt+pe_cnt+ne_cnt));
+		
+		
+		System.out.println("count of E and PE path");
+		System.out.println("E: "+e_path_cnt);
+		System.out.println("PE: "+pe_path_cnt);
+		System.out.println("total: "+(e_path_cnt + pe_path_cnt));
+		
 		//System.out.println("call Count : "+callCounter);
 	}
 	

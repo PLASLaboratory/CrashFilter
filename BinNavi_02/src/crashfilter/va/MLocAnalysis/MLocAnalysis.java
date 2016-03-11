@@ -113,8 +113,8 @@ public class MLocAnalysis {
 				MLocLatticeElement currentState,
 				MLocLatticeElement inputState
 				) {
-			count++;
-			System.out.println("count : "+count+"  -"+node.getInstruction());
+		//	count++;
+		//	System.out.println("count : "+count+"  : "+node.getInstruction());
 			MLocLatticeElement transformedState = new MLocLatticeElement();
 			Env inputEnv = inputState.getEnv();
 			Env currentEnv = currentState.getEnv();
