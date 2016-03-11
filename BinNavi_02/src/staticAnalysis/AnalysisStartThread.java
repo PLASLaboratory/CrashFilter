@@ -222,24 +222,6 @@ public class AnalysisStartThread implements IProgressThread {
 				}
 			}
 			
-/*******************VS******************************
-			LogConsole.log("\n VS  1\n");
-			VS3 vs = new VS3(graph);
-			LogConsole.log("\n VS  2\n");
-			vs.analysis();
-			LogConsole.log("\n VS  3\n");
-/**************************************************/
-			
-/************************************************
-			LogConsole.log("\n VA  1\n");
-			EnvManager envManagaer = EnvManager.getEnvManager();
-			LogConsole.log("\n VA  2\n");
-			envManagaer.setGraph(graph);
-			LogConsole.log("\n VA  3\n");
-			envManagaer.runValueAnalysis();
-			LogConsole.log("\n VA  4\n");
-			
-/*************************************************/
 			
 
 /************************************************
