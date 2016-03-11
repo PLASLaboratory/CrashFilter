@@ -10,12 +10,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.StringTokenizer;
 
+import com.google.security.zynamics.binnavi.API.disassembly.Address;
 import com.google.security.zynamics.binnavi.API.disassembly.CouldntLoadDataException;
 import com.google.security.zynamics.binnavi.API.disassembly.CouldntSaveDataException;
 import com.google.security.zynamics.binnavi.API.disassembly.Function;
 import com.google.security.zynamics.binnavi.API.disassembly.Instruction;
 import com.google.security.zynamics.binnavi.API.disassembly.Module;
 import com.google.security.zynamics.binnavi.API.disassembly.ModuleHelpers;
+import com.google.security.zynamics.binnavi.API.disassembly.Operand;
 import com.google.security.zynamics.binnavi.API.disassembly.PartialLoadException;
 import com.google.security.zynamics.binnavi.API.disassembly.View;
 import com.google.security.zynamics.binnavi.API.gui.LogConsole;
@@ -61,6 +63,8 @@ public class AnalysisStartThread implements IProgressThread {
 	
 	int e_path_cnt = 0;
 	int pe_path_cnt = 0;
+	int callCounter = 0;
+	
 	public AnalysisStartThread(PluginInterface m_plugin, File crachFolder,
 			Module module , String crashAddr, int optionalCode) {
 		super();
@@ -92,9 +96,7 @@ public class AnalysisStartThread implements IProgressThread {
 		IStateVector<InstructionGraphNode,EnvLatticeElement> envResult = null;
 		IStateVector<InstructionGraphNode,MLocLatticeElement> mLocResult = null;
 		Map<Long, CrashPoint> crashPointToFuncAddr = new HashMap<Long, CrashPoint>();
-		
-		int callCounter = 0;
-		
+			
 		File[] subDirs;
 		if (crashFolder != null && crashFolder.isDirectory()) {
 
@@ -243,40 +245,9 @@ public class AnalysisStartThread implements IProgressThread {
 			
 /*************************************************/
 
-		
-/***********count call****************************** 			
-			boolean aa = false;
-			for(InstructionGraphNode inst : graph.getNodes())
-			{
-				Address instAddr = inst.getInstruction().getAddress();
-				long instAddrLong = instAddr.toLong();
-				instAddrLong /= 0x100;
-				Instruction nativeInst = ReilInstructionResolve.findNativeInstruction(curFunc, instAddrLong);
-				
-				if(nativeInst.getMnemonic().equals("call"))
-				{
-					callCounter++;
-					break;
-				}
-				else if(nativeInst.getMnemonic().equals("BL") )
-				{
-					for(Operand oprand : nativeInst.getOperands())
-					{
-						if(oprand.toString().contains("sub_"))
-						{
-							callCounter++;
-							aa=true;
-							break;
-						}
-					}
-					if(aa)
-					{
-						aa=false;
-						break;
-					}
-				}
-			}			
-****************************************************/	
+			
+			
+			
 			
 			
 			
@@ -345,6 +316,8 @@ public class AnalysisStartThread implements IProgressThread {
 					+ "\n");
 			viewIndex++;
 			
+			//how many 'call' instruction in function
+			callCounter = getNumOfFunctions(graph, curFunc);
 		}
 		LogConsole.log(cihm.toString());
 		
@@ -371,11 +344,48 @@ public class AnalysisStartThread implements IProgressThread {
 		System.out.println("PE: "+pe_path_cnt);
 		System.out.println("total: "+(e_path_cnt + pe_path_cnt));
 		
-		//System.out.println("call Count : "+callCounter);
+		
+		
+		System.out.println("call Count : "+callCounter);
 	}
 	
 
 
+	private int getNumOfFunctions(ILatticeGraph<InstructionGraphNode> graph, Function curFunc) {
+		
+		boolean flag = false;
+		for(InstructionGraphNode inst : graph.getNodes())
+		{
+			Address instAddr = inst.getInstruction().getAddress();
+			long instAddrLong = instAddr.toLong();
+			instAddrLong /= 0x100;
+			Instruction nativeInst = ReilInstructionResolve.findNativeInstruction(curFunc, instAddrLong);
+			
+			if(nativeInst.getMnemonic().equals("call"))
+			{
+				callCounter++;
+				break;
+			}
+			else if(nativeInst.getMnemonic().equals("BL") )
+			{
+				for(Operand oprand : nativeInst.getOperands())
+				{
+					if(oprand.toString().contains("sub_"))
+					{
+						callCounter++;
+						flag=true;
+						break;
+					}
+				}
+				if(flag)
+				{
+					flag=false;
+					break;
+				}
+			}
+		}			
+		return callCounter;
+	}
 	private IStateVector<InstructionGraphNode, MLocLatticeElement> memoryAnalysis(ILatticeGraph<InstructionGraphNode> graph, Function curFunc,
 			IStateVector<InstructionGraphNode, MLocLatticeElement> mLocResult) throws MLocException {
 		// TODO Auto-generated method stub
