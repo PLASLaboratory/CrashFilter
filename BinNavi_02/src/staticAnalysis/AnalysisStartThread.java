@@ -136,6 +136,8 @@ public class AnalysisStartThread implements IProgressThread {
 		int viewIndex = 0;
 		for (Long crashPointAddress : crashPointToFuncAddr.keySet()) {
 
+			
+			LogConsole.log("now analyzing : " +Long.toHexString(crashPointAddress)+"\n");
 			long before = System.currentTimeMillis();
 
 			ReilFunction curReilFunc = null;
