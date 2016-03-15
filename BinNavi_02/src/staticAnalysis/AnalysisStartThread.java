@@ -264,6 +264,7 @@ public class AnalysisStartThread implements IProgressThread {
 			System.out.println("== start EEEEEEEEEEEEEEE ==\n");
 			RDAnalysis rda = new RDAnalysis(graph, crashPointAddress);
 			RDResult = rda.RDAnalysis();	
+
 			LogConsole.log("== end rd analysis ==\n");
 			
 
@@ -273,8 +274,10 @@ public class AnalysisStartThread implements IProgressThread {
 			du.setMemoryResult(mLocResult);
 			du.defUseChaining();
 			
-			
-			crashInstructionGraphNode.add(CrashSourceAdder.getInstruction(graph, crashPointAddress));
+			if(crashSrcAnalysis)
+			{
+				crashInstructionGraphNode.add(CrashSourceAdder.getInstruction(graph, crashPointAddress));
+			}
 			for (InstructionGraphNode instGraphNode : crashInstructionGraphNode) {
 				du.createDefUseGraph(instGraphNode);
 			}

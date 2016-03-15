@@ -113,8 +113,6 @@ public class MLocAnalysis {
 				MLocLatticeElement currentState,
 				MLocLatticeElement inputState
 				) {
-		//	count++;
-		//	System.out.println("count : "+count+"  : "+node.getInstruction());
 			MLocLatticeElement transformedState = new MLocLatticeElement();
 			Env inputEnv = inputState.getEnv();
 			Env currentEnv = currentState.getEnv();
@@ -165,7 +163,7 @@ public class MLocAnalysis {
 			CallStackCleaner callStackCleaner = CallStackCleaner.getCallStackCleaner();
 			if(callStackCleaner.isToBeClearedStack(node))
 			{
-				System.out.println("a");
+				System.out.println("call stack cleaning...");
 				callStackCleaner.clearCallStack_Ebp(transformed_RTable, transformed_Env);
 			}
 			
