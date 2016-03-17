@@ -246,13 +246,11 @@ public class IRManager { // singleton
 		}
 		else
 		{
-			//err
 		}
 		
 		if(op1v == -1)
 		{
 			//bisz err
-			//System.out.println("b");
 		}
 		else
 		{

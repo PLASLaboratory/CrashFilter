@@ -124,6 +124,24 @@ public class IRSetManager { // singleton
 			putElements(init_ebp, value );
 			
 			
+			
+			//for arm	
+			ActualReg init_SP = new ActualReg("SP");			
+			StructuredMLoc init_stack_0 = new StructuredMLoc.StructuredMLocBuilder()
+					.reg2(new ActualReg("stack"))
+					.c2(new Val(0)).build();
+			value.add(init_stack_0);
+			putElements(init_SP, value );
+			
+			ActualReg init_LR = new ActualReg("LR");			
+			StructuredMLoc retAddr = new StructuredMLoc.StructuredMLocBuilder()
+					.reg2(new ActualReg("retAddr"))
+					.c2(new Val(0)).build();
+			value.add(retAddr);
+			putElements(init_LR, value );
+			
+			
+			//for heap
 			value = new HashSet<IValue>();
 			init_heap = new ActualReg("heap");
 			putElements(init_heap, value);
@@ -159,13 +177,23 @@ public class IRSetManager { // singleton
 		initRegBottom("CF", new HashSet<IValue>());
 		initRegBottom("SF", new HashSet<IValue>());
 		
+		
+		//for  temp reg
 		for(int i=0; i<20; i++)
 		{
 			initRegBottom("t"+i, value);
-		}		
+		}
+		
+		//for arm
+		initRegBottom("C", new HashSet<IValue>());
+		initRegBottom("N", new HashSet<IValue>());
+		initRegBottom("V", new HashSet<IValue>());
+		for(int i=0; i<16; i++)
+		{
+			initRegBottom("R"+i, new HashSet<IValue>());
+		}
 		return rTable;		
 	}
-	
 	
 	void initRegBottom(String str, Set<IValue> value)
 	{
