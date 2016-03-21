@@ -47,7 +47,7 @@ public class BinDialog extends JDialog {
 	PluginInterface p;
 
 	public BinDialog(final JFrame parent, final Module module,	PluginInterface m_pluginInterface) {
-		super(parent, "Test", true);
+		super(parent, "CrashFilter", true);
 		m = module;
 		p = m_pluginInterface;
 
