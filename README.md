@@ -3,6 +3,6 @@ CrashFilter is plugin of BinNavi.
 
 #BinNavi
 
-http://www.zynamics.com/binnavi.html.
+[zynamics] http://www.zynamics.com/binnavi.html
 
-https://github.com/google/binnavi.
+[git]      https://github.com/google/binnavi
