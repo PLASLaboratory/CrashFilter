@@ -1,5 +1,0 @@
-package Loc;
-
-public enum LocType {
-	Stack_Val, Reg_Val_Val, Stack_Val_Val, Val, Unknown
-}

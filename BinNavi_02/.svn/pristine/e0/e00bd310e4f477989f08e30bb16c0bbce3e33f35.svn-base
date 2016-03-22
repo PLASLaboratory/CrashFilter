@@ -1,8 +1,0 @@
-package crashfilter.va.env;
-
-public interface IALoc {
-
-	// IMLoc or Val or ActualReg
-	// Key for env
-	
-}
