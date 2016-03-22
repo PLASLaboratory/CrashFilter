@@ -101,7 +101,7 @@ public class MLocAnalysis {
 		eManager.setEnv(env);			
 
 		//env = eManager.initFirst();			
-		//env = eManager.init();
+		env = eManager.init();
 		return env;
 	}
 	

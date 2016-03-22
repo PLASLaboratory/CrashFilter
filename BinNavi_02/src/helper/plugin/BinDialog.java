@@ -38,6 +38,7 @@ public class BinDialog extends JDialog {
 	private Checkbox memoryAnalysisCheck = new Checkbox("memoryAnalysis",true);			
 	private Checkbox crashSrcAnalysisCheck = new Checkbox("crashSrcAnalysis",true);	
 	private Checkbox singleCrashCheck = new Checkbox("singleCrash", true); 	
+	private Checkbox CrashCheck = new Checkbox("singleCrash", true); 	
 	private Checkbox vsaCheck = new Checkbox("VSA", true); 	
 	
 	
@@ -90,8 +91,7 @@ public class BinDialog extends JDialog {
 		
 		if(singleCrashCheck.getState()) code |= 1;
 		if(memoryAnalysisCheck.getState()) code |= 10;
-		if(crashSrcAnalysisCheck.getState()) code |= 100;
-		
+		if(crashSrcAnalysisCheck.getState()) code |= 100;		
 		
 		return code;
 	}
@@ -105,8 +105,7 @@ public class BinDialog extends JDialog {
 		public FListener(BinDialog jd) {
 			super();
 			this.jd = jd;
-		}
-		
+		}		
 
 		@Override
 		public void actionPerformed(ActionEvent arg0) {

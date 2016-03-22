@@ -204,7 +204,7 @@ public class EnvManager { // singleton
 		
 		
 		//for arm
-		/********************
+		/********************/
 		initRegBottom("LR");
 		initRegBottom("C");
 		initRegBottom("N");
