@@ -322,7 +322,7 @@ public class AnalysisStartThread implements IProgressThread {
 			viewIndex++;
 			
 			//how many 'call' instruction in function
-			callCounter = getNumOfFunctions(graph, curFunc);
+			callCounter = getNumOfFunctionCalls(graph, curFunc);
 		}
 		LogConsole.log(cihm.toString());
 		
@@ -356,7 +356,7 @@ public class AnalysisStartThread implements IProgressThread {
 	
 
 
-	private int getNumOfFunctions(ILatticeGraph<InstructionGraphNode> graph, Function curFunc) {
+	private int getNumOfFunctionCalls(ILatticeGraph<InstructionGraphNode> graph, Function curFunc) {
 		
 		boolean flag = false;
 		for(InstructionGraphNode inst : graph.getNodes())
