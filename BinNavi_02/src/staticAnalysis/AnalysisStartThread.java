@@ -132,10 +132,13 @@ public class AnalysisStartThread implements IProgressThread {
 				+ "\n\n");
 
 		HashSet<Long> count = new HashSet<>();
+		List<String> tobeInterprocedureAnalysis = new ArrayList<>();
 		CountInstructionHashMap cihm = new CountInstructionHashMap();
 		int viewIndex = 0;
+		
 		for (Long crashPointAddress : crashPointToFuncAddr.keySet()) {
 
+			crashAddr = Long.toHexString(crashPointAddress);
 			
 			LogConsole.log("now analyzing : " +Long.toHexString(crashPointAddress)+"\n");
 			long before = System.currentTimeMillis();
@@ -323,6 +326,10 @@ public class AnalysisStartThread implements IProgressThread {
 			
 			//how many 'call' instruction in function
 			callCounter = getNumOfFunctionCalls(graph, curFunc);
+			if(	hasFunctionCalls(graph, curFunc) )
+			{
+				tobeInterprocedureAnalysis.add(crashAddr);
+			}
 		}
 		LogConsole.log(cihm.toString());
 		
@@ -338,9 +345,9 @@ public class AnalysisStartThread implements IProgressThread {
 		}
 		
 		System.out.println("Exploitable Analysis");
-		System.out.println("E: "+e_cnt);
-		System.out.println("PE: "+pe_cnt);
-		System.out.println("NE: "+ne_cnt);
+		System.out.println("E,"+e_cnt);
+		System.out.println("PE, "+pe_cnt);
+		System.out.println("NE, "+ne_cnt);
 		System.out.println("total: "+(e_cnt+pe_cnt+ne_cnt));
 		
 		
@@ -349,12 +356,44 @@ public class AnalysisStartThread implements IProgressThread {
 		System.out.println("PE: "+pe_path_cnt);
 		System.out.println("total: "+(e_path_cnt + pe_path_cnt));
 		
-		
-		
 		System.out.println("call Count : "+callCounter);
+		
+		for(String str : tobeInterprocedureAnalysis)
+		{
+			System.out.println("0x"+str );
+		}
 	}
 	
-
+	
+	private boolean hasFunctionCalls(ILatticeGraph<InstructionGraphNode> graph, Function curFunc)
+	{
+		boolean hasCall = false;
+		for(InstructionGraphNode inst : graph.getNodes())
+		{
+			Address instAddr = inst.getInstruction().getAddress();
+			long instAddrLong = instAddr.toLong();
+			instAddrLong /= 0x100;
+			Instruction nativeInst = ReilInstructionResolve.findNativeInstruction(curFunc, instAddrLong);
+			
+			if(nativeInst.getMnemonic().equals("call"))
+			{
+				hasCall = true;
+				break;
+			}
+			else if(nativeInst.getMnemonic().equals("BL") )
+			{
+				for(Operand oprand : nativeInst.getOperands())
+				{
+					if(oprand.toString().contains("sub_"))
+					{
+						hasCall=true;
+						break;
+					}
+				}
+			}
+		}
+		return hasCall;		
+	}
 
 	private int getNumOfFunctionCalls(ILatticeGraph<InstructionGraphNode> graph, Function curFunc) {
 		

@@ -34,7 +34,7 @@ public class BinDialog extends JDialog {
 
 	private File f = null;
 	private String crashAddr = null;					
-	private TextField tf = new TextField("crashAddr");
+	private TextField singleCrashAddrTextfield = new TextField("crashAddr");
 	private Checkbox memoryAnalysisCheck = new Checkbox("memoryAnalysis",true);			
 	private Checkbox crashSrcAnalysisCheck = new Checkbox("crashSrcAnalysis",true);	
 	private Checkbox singleCrashCheck = new Checkbox("singleCrash", true); 	
@@ -64,8 +64,8 @@ public class BinDialog extends JDialog {
 		filePanel.add(filePathField);
 		filePanel.add(new CPanelTwoButtons(new FListener(this), "ADD", "START"),BorderLayout.EAST);
 		
-		tf.setText("not use");										//HyeonGu 15.4.21
-		filePanel.add(tf,BorderLayout.AFTER_LAST_LINE);		//HyeonGu 15.4.21
+		singleCrashAddrTextfield.setText("not use");										//HyeonGu 15.4.21
+		filePanel.add(singleCrashAddrTextfield,BorderLayout.AFTER_LAST_LINE);		//HyeonGu 15.4.21
 		filePanel.add(singleCrashCheck, BorderLayout.WEST);
 		
 		
@@ -123,7 +123,7 @@ public class BinDialog extends JDialog {
 
 			else if (arg0.getActionCommand().equals("START")) {
 				optionalCode = makeOptionalCode();
-				crashAddr = tf.getText();
+				crashAddr = singleCrashAddrTextfield.getText();
 				if(!singleCrashCheck.getState())
 				{
 					if (f == null) {
