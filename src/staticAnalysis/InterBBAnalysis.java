@@ -1,8 +1,9 @@
 package staticAnalysis;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
-import java.util.logging.Logger;
+import java.util.Set;
 
 import com.google.security.zynamics.binnavi.API.disassembly.BasicBlock;
 import com.google.security.zynamics.binnavi.API.disassembly.FlowGraph;
@@ -20,98 +21,110 @@ public class InterBBAnalysis {
     Function function;
 
     List<GlobalVariable> globalVariables = new ArrayList<GlobalVariable>();
-    
-    
-    List<String> usedGlobalVariables = new ArrayList<String>();
-    List<String> usedLocalVariables = new ArrayList<String>();
-    List<String> usedArguments = new ArrayList<String>();
-    
-    List<String> usedOperands = new ArrayList<String>();
+
+    Set<String> usedGlobalVariables = new HashSet<String>();
+    Set<String> usedLocalVariables = new HashSet<String>();
+    Set<String> usedArguments = new HashSet<String>();
+
+    Set<String> usedOperands = new HashSet<String>();
 
     public InterBBAnalysis(Module module, Function function) {
         this.module = module;
         this.function = function;
-        
+
         initGlobalVariables();
         usedOperands = findUsedOperands();
         findUsedLocalVariables();
+        findUsedArguments();
+        findUsedGlobalVariables();
+
     }
-    
-    private void initGlobalVariables()
-    {
+
+    private void initGlobalVariables() {
         GlobalVariablesManager gvm = module.getGlobalVariablesManager();
         gvm.getVariables();
-            
-        globalVariables = gvm.getVariables();       
+
+        globalVariables = gvm.getVariables();
+        System.out.println("global : \n" + globalVariables);
     }
-    
-    private List<String> findUsedOperands()
-    {
-        List<String> usedOperands = new ArrayList<String>();
-        
+
+    private Set<String> findUsedOperands() {
+        HashSet<String> usedOperands = new HashSet<String>();
+
         FlowGraph flowGraph = function.getGraph();
         List<BasicBlock> basicBlocks = flowGraph.getNodes();
-        for(BasicBlock bb : basicBlocks)
-        {
+        for (BasicBlock bb : basicBlocks) {
             List<Instruction> instructions = bb.getInstructions();
-            for(Instruction instruction : instructions)
-            {
+            for (Instruction instruction : instructions) {
                 List<Operand> operands = instruction.getOperands();
-                for(Operand operand :  operands)
-                {
+                for (Operand operand : operands) {
                     usedOperands.add(operand.toString());
-                    System.out.println(operand.toString());
                 }
             }
         }
-        
+
         return usedOperands;
     }
-    
-    private void findUsedGlobalVariables()
-    {
-        
-    }
-    
-    private void findUsedLocalVariables()
-    {
+
+    private void findUsedGlobalVariables() {
         for(String operand : usedOperands)
         {
-            if(operand.contains("var_"))
+            for(GlobalVariable globalVariable : globalVariables)
             {
+                if(operand.contains(globalVariable.getName()))
+                {
+                    System.out.println("finded global variable : " + globalVariable.getName());
+                    usedGlobalVariables.add(operand);
+                }
+            }
+            
+        }
+    }
+
+    private void findUsedLocalVariables() {
+        for (String operand : usedOperands) {
+            if (operand.contains("var_") || operand.contains("loc_")) {
                 String variable = stringOfLocalVariable(operand);
-                System.out.println(variable);
+                usedLocalVariables.add(variable);
             }
         }
     }
-    private String stringOfLocalVariable(String operand)
-    {
-        String localVariable = operand.substring(4,operand.length()-1);
-        
-        
-        for(int i=0; i<localVariable.length()-5; i++)
-        {
-            if(localVariable.startsWith("var_") )
-            {
-                localVariable = localVariable.substring(1, localVariable.length());                
-            }
+
+    private String stringOfLocalVariable(String operand) {
+        String localVariable = operand.substring(4, operand.length() - 1);
+
+        while (!(localVariable.startsWith("var_") || localVariable.startsWith("loc_"))) {
+            localVariable = localVariable.substring(1, localVariable.length());
         }
-        
-        if(localVariable.length()==0)
-        {
-            LogConsole.log("error : InterBBAnalysis - stringOfLocalVariable() - localVariable's length is 0" );
+
+        if (localVariable.length() == 0) {
+            LogConsole.log("error : InterBBAnalysis - stringOfLocalVariable() - localVariable's length is 0");
         }
         return localVariable;
-              
+
     }
-    
-    
-    private void findUsedarguments()
-    {
-        
+
+    private void findUsedArguments() {
+        for (String operand : usedOperands) {
+            if (operand.contains("arg_")) {
+                String argument = stringOfArguments(operand);
+                usedArguments.add(argument);
+                // System.out.println("argument : " + argument);
+            }
+        }
     }
-    
-    
-    
+
+    private String stringOfArguments(String operand) {
+        String argument = operand.substring(4, operand.length() - 1);
+
+        while (!argument.startsWith("arg_")) {
+            argument = argument.substring(1, argument.length());
+        }
+
+        if (argument.length() == 0) {
+            LogConsole.log("error : InterBBAnalysis - stringOfArguments() - argument length is 0");
+        }
+        return argument;
+    }
 
 }

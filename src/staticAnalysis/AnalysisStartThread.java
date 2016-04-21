@@ -302,11 +302,6 @@ public class AnalysisStartThread implements IProgressThread {
                 tobeInterprocedureAnalysis.add(crashAddr);
             }
 
-            System.out.println("name : " + curFunc.getName());
-            for (Instruction inst : curFunc.getGraph().getNodes().get(0).getInstructions()) {
-                System.out.println("inst : " + inst);
-            }
-
             InterBBAnalysis ibba = new InterBBAnalysis(module, curFunc);
 
         }
@@ -340,7 +335,7 @@ public class AnalysisStartThread implements IProgressThread {
         System.out.println("call Count : " + callCounter);
 
         for (String str : tobeInterprocedureAnalysis) {
-            System.out.println("0x" + str);
+            //System.out.println("0x" + str);
         }
 
         System.out.println("=============test============");
@@ -427,10 +422,5 @@ public class AnalysisStartThread implements IProgressThread {
 
     }
 
-    private class TXTFileFilter implements FilenameFilter {
 
-        public boolean accept(File dir, String name) {
-            return name.endsWith(".txt");
-        }
-    }
 }
