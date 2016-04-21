@@ -2,6 +2,7 @@ package staticAnalysis;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Logger;
 
 import com.google.security.zynamics.binnavi.API.disassembly.BasicBlock;
 import com.google.security.zynamics.binnavi.API.disassembly.FlowGraph;
@@ -11,6 +12,7 @@ import com.google.security.zynamics.binnavi.API.disassembly.GlobalVariablesManag
 import com.google.security.zynamics.binnavi.API.disassembly.Instruction;
 import com.google.security.zynamics.binnavi.API.disassembly.Module;
 import com.google.security.zynamics.binnavi.API.disassembly.Operand;
+import com.google.security.zynamics.binnavi.API.gui.LogConsole;
 
 public class InterBBAnalysis {
 
@@ -32,6 +34,7 @@ public class InterBBAnalysis {
         
         initGlobalVariables();
         usedOperands = findUsedOperands();
+        findUsedLocalVariables();
     }
     
     private void initGlobalVariables()
@@ -72,7 +75,34 @@ public class InterBBAnalysis {
     
     private void findUsedLocalVariables()
     {
+        for(String operand : usedOperands)
+        {
+            if(operand.contains("var_"))
+            {
+                String variable = stringOfLocalVariable(operand);
+                System.out.println(variable);
+            }
+        }
+    }
+    private String stringOfLocalVariable(String operand)
+    {
+        String localVariable = operand.substring(4,operand.length()-1);
         
+        
+        for(int i=0; i<localVariable.length()-5; i++)
+        {
+            if(localVariable.startsWith("var_") )
+            {
+                localVariable = localVariable.substring(1, localVariable.length());                
+            }
+        }
+        
+        if(localVariable.length()==0)
+        {
+            LogConsole.log("error : InterBBAnalysis - stringOfLocalVariable() - localVariable's length is 0" );
+        }
+        return localVariable;
+              
     }
     
     
