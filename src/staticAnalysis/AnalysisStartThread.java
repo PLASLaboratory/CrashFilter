@@ -47,6 +47,7 @@ import helper.CallStackCleaner;
 import helper.CrashFileScanner;
 import helper.CrashSourceAdder;
 import helper.HeapChecker;
+import helper.VariableFinder;
 import staticAnalysis.RDAnalysis.RDLatticeElement;
 import view.ExploitPathView;
 
@@ -302,7 +303,7 @@ public class AnalysisStartThread implements IProgressThread {
                 tobeInterprocedureAnalysis.add(crashAddr);
             }
 
-            InterBBAnalysis ibba = new InterBBAnalysis(module, curFunc);
+            VariableFinder ibba = new VariableFinder(module, curFunc);
 
         }
 
