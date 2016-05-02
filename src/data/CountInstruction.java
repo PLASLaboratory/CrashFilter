@@ -9,9 +9,6 @@ public class CountInstruction extends HashMap<Integer, CrashPoint>{
 
 	@Override
 	public CrashPoint put(Integer key, CrashPoint value) {
-		// TODO Auto-generated method stub
-		
-		
 		return super.put(key, value);
 	}
 

@@ -57,7 +57,7 @@ public class AnalysisStartThread implements IProgressThread {
     final private Module module;
     private Map<String, String> crashFilteringResult = new HashMap<>();
 
-    private String crashAddr = ""; // HyeonGu 15.4.21
+    private String crashAddr = ""; 
     boolean singleCrashCheck = false;
     boolean memoryAnalysisCheck = false;
     boolean crashSrcAnalysis = false;
@@ -84,11 +84,7 @@ public class AnalysisStartThread implements IProgressThread {
 
     }
 
-    @Override
-    public boolean close() {
-        // TODO Auto-generated method stub
-        return false;
-    }
+
 
     @Override
     public void run() throws MLocException {
@@ -98,37 +94,10 @@ public class AnalysisStartThread implements IProgressThread {
         IStateVector<InstructionGraphNode, RTableLatticeElement> locResult = null;
         IStateVector<InstructionGraphNode, EnvLatticeElement> envResult = null;
         IStateVector<InstructionGraphNode, MLocLatticeElement> mLocResult = null;
+        
         Map<Long, CrashPoint> crashPointToFuncAddr = new HashMap<Long, CrashPoint>();
-
-        File[] subDirs;
-        if (crashFolder != null && crashFolder.isDirectory()) {
-
-            subDirs = crashFolder.listFiles();
-
-            LogConsole.log("Folder count: " + Integer.toString(subDirs.length) + "\n");
-
-            boolean multiCrashAnalysis = !singleCrashCheck;
-            if (multiCrashAnalysis) {
-                crashPointToFuncAddr
-                        .putAll(CrashFileScanner.parseCrashFiles(subDirs, module, crashAddr, singleCrashCheck));
-                LogConsole.log("path   : \n");
-                LogConsole.log("filter : \n");
-            } else {
-                LogConsole.log("error multi crash check1 \n");
-                return;
-            }
-        } else {
-            if (singleCrashCheck) {
-                crashPointToFuncAddr
-                        .putAll(CrashFileScanner.parseCrashFiles(null, module, crashAddr, singleCrashCheck));
-                LogConsole.log("path   : \n");
-                LogConsole.log("filter : \n");
-            } else {
-                LogConsole.log("error single crash check2 \n");
-                return;
-            }
-
-        } // we could successfully get crashPointAddresses
+        findFunctionFromCrashPointAddr(crashPointToFuncAddr);
+        
         LogConsole.log("Parsing File Number : " + crashPointToFuncAddr.size() + "\n\n");
 
         HashSet<Long> count = new HashSet<>();
@@ -161,6 +130,7 @@ public class AnalysisStartThread implements IProgressThread {
                 System.out.println("dubugging" + "/");
                 // continue;
             }
+            
             Instruction crashInst = ReilInstructionResolve.findNativeInstruction(curFunc, crashPointAddress);
 
             if (curFunc == null) {
@@ -216,25 +186,6 @@ public class AnalysisStartThread implements IProgressThread {
                     }
                 }
             }
-
-            /***********
-             * EnvAnalysis_Env ********************
-             * 
-             * LogConsole.log("== start Env loc analysis ==\n"); EnvAnalysis
-             * envAnalysis = new EnvAnalysis(graph);
-             * 
-             * LogConsole.log("== find Heap Location ==\n");
-             * envAnalysis.findHeapAllocation(curFunc);
-             * 
-             * LogConsole.log("== analysis start ==\n"); envResult =
-             * envAnalysis.envAnalysis(); envAnalysis.deleteTempReg(envResult);
-             * envAnalysis.deleteBottomSymbol(envResult); LogConsole.log(
-             * "== end env analysis ==\n"); //envAnalysis.printEnv(envResult);
-             * LogConsole.log("== end print env analysis ===\n");
-             * 
-             * /
-             *************************************************/
-
             /*********** MLocAnalysis_RTable+Env ********************/
             if (memoryAnalysisCheck) {
                 mLocResult = memoryAnalysis(graph, curFunc, mLocResult);
@@ -303,7 +254,7 @@ public class AnalysisStartThread implements IProgressThread {
                 tobeInterprocedureAnalysis.add(crashAddr);
             }
 
-            VariableFinder ibba = new VariableFinder(module, curFunc);
+            InterBBAnalysis interBBAnalysis = new InterBBAnalysis(module, curFunc);
 
         }
 
@@ -343,6 +294,38 @@ public class AnalysisStartThread implements IProgressThread {
 
         System.out.println();
         System.out.println();
+    }
+
+    private void findFunctionFromCrashPointAddr(Map<Long, CrashPoint> crashPointToFuncAddr) {
+        File[] subDirs;
+        if (crashFolder != null && crashFolder.isDirectory()) {
+
+            subDirs = crashFolder.listFiles();
+
+            LogConsole.log("Folder count: " + Integer.toString(subDirs.length) + "\n");
+
+            boolean multiCrashAnalysis = !singleCrashCheck;
+            if (multiCrashAnalysis) {
+                crashPointToFuncAddr
+                        .putAll(CrashFileScanner.parseCrashFiles(subDirs, module, crashAddr, singleCrashCheck));
+                LogConsole.log("path   : \n");
+                LogConsole.log("filter : \n");
+            } else {
+                //LogConsole.log("error multi crash check1 \n");
+                return;
+            }
+        } else {
+            if (singleCrashCheck) {
+                crashPointToFuncAddr
+                        .putAll(CrashFileScanner.parseCrashFiles(null, module, crashAddr, singleCrashCheck));
+                LogConsole.log("path   : \n");
+                LogConsole.log("filter : \n");
+            } else {
+                //LogConsole.log("error single crash check2 \n");
+                return;
+            }
+
+        }
     }
 
     private boolean hasFunctionCalls(ILatticeGraph<InstructionGraphNode> graph, Function curFunc) {
@@ -421,6 +404,12 @@ public class AnalysisStartThread implements IProgressThread {
 
         return mLocResult;
 
+    }
+
+    @Override
+    public boolean close() {
+        // TODO Auto-generated method stub
+        return false;
     }
 
 

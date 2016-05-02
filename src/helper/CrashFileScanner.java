@@ -33,7 +33,6 @@ public class CrashFileScanner {
 			return parseMultiCrashFiles(crashFiles, module, crashAddr);
 		}
 		
-		
 	}
 	public static Map<Long, CrashPoint> parseSingleCrashFiles(Module module, String crashAddr) {
 

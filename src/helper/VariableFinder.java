@@ -20,13 +20,26 @@ public class VariableFinder {
     Module module;
     Function function;
 
-    List<GlobalVariable> globalVariables = new ArrayList<GlobalVariable>();
+    private List<GlobalVariable> globalVariables = new ArrayList<GlobalVariable>();
 
-    Set<String> usedGlobalVariables = new HashSet<String>();
-    Set<String> usedLocalVariables = new HashSet<String>();
-    Set<String> usedArguments = new HashSet<String>();
+    private Set<String> usedGlobalVariables = new HashSet<String>();
+    private Set<String> usedLocalVariables = new HashSet<String>();
+    private Set<String> usedArguments = new HashSet<String>();
+    private Set<String> usedOperands = new HashSet<String>();
+    
+    
 
-    Set<String> usedOperands = new HashSet<String>();
+    public Set<String> getUsedGlobalVariables() {
+        return usedGlobalVariables;
+    }
+
+    public Set<String> getUsedLocalVariables() {
+        return usedLocalVariables;
+    }
+
+    public Set<String> getUsedArguments() {
+        return usedArguments;
+    }
 
     public VariableFinder(Module module, Function function) {
         this.module = module;
