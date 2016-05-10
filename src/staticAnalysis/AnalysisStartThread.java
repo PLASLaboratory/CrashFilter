@@ -254,7 +254,7 @@ public class AnalysisStartThread implements IProgressThread {
                 tobeInterprocedureAnalysis.add(crashAddr);
             }
 
-            InterBBAnalysis interBBAnalysis = new InterBBAnalysis(module, curFunc);
+            FunctionCallManager interBBAnalysis = new FunctionCallManager(module, curFunc);
 
         }
 

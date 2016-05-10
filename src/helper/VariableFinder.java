@@ -26,8 +26,6 @@ public class VariableFinder {
     private Set<String> usedLocalVariables = new HashSet<String>();
     private Set<String> usedArguments = new HashSet<String>();
     private Set<String> usedOperands = new HashSet<String>();
-    
-    
 
     public Set<String> getUsedGlobalVariables() {
         return usedGlobalVariables;
@@ -46,9 +44,9 @@ public class VariableFinder {
         this.function = function;
 
         initGlobalVariables();
-        
+
         usedOperands = findUsedOperands();
-     
+
         findUsedLocalVariables();
         findUsedArguments();
         findUsedGlobalVariables();
@@ -64,7 +62,7 @@ public class VariableFinder {
     }
 
     private Set<String> findUsedOperands() {
-        
+
         HashSet<String> usedOperands = new HashSet<String>();
 
         FlowGraph flowGraph = function.getGraph();
@@ -82,17 +80,13 @@ public class VariableFinder {
     }
 
     private void findUsedGlobalVariables() {
-        for(String operand : usedOperands)
-        {
-            for(GlobalVariable globalVariable : globalVariables)
-            {
-                if(operand.contains(globalVariable.getName()))
-                {
+        for (String operand : usedOperands) {
+            for (GlobalVariable globalVariable : globalVariables) {
+                if (operand.contains(globalVariable.getName())) {
                     System.out.println("finded global variable : " + globalVariable.getName());
                     usedGlobalVariables.add(operand);
                 }
             }
-            
         }
     }
 
@@ -122,14 +116,14 @@ public class VariableFinder {
     private void findUsedArguments() {
         for (String operand : usedOperands) {
             if (operand.contains("arg_")) {
-                String argument = stringOfArguments(operand);
+                String argument = getStringOfArguments(operand);
                 usedArguments.add(argument);
-                // System.out.println("argument : " + argument);
+                System.out.println("argument : " + argument);
             }
         }
     }
 
-    private String stringOfArguments(String operand) {
+    private String getStringOfArguments(String operand) {
         String argument = operand.substring(4, operand.length() - 1);
 
         while (!argument.startsWith("arg_")) {
