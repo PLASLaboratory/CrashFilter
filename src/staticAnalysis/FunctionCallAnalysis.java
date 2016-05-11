@@ -53,8 +53,5 @@ public class FunctionCallAnalysis {
         return variableFinder.getUsedArguments().size() == 0;
     }
 
-    public boolean dontUseGlobalVariable() {
-        return variableFinder.getUsedGlobalVariables().size() == 0;
-    }
 
 }

@@ -164,14 +164,8 @@ public class AnalysisStartThread implements IProgressThread {
                 }
             }
 
-            /**********************
-             * Dominator Analysis*********************************
-             * 
-             * DominatorAnalysis domAnalysis = new DominatorAnalysis(curFunc);
-             * LogConsole.log("Dom:\n"); domAnalysis.fineDominator();
-             * LogConsole.log("PDom\n"); domAnalysis.finePDominator(); //
-             * LogConsole.log("\n"); /
-             *****************************************************************************/
+            
+            
 
             if (curReilFunc != null) {
                 graph = InstructionGraph.create(curReilFunc.getGraph()); // API's
@@ -186,6 +180,8 @@ public class AnalysisStartThread implements IProgressThread {
                     }
                 }
             }
+            
+            
             /*********** MLocAnalysis_RTable+Env ********************/
             if (memoryAnalysisCheck) {
                 mLocResult = memoryAnalysis(graph, curFunc, mLocResult);
@@ -221,9 +217,10 @@ public class AnalysisStartThread implements IProgressThread {
 
             LogConsole.log("== end DU analysis ==\n");
 
-            ExploitableAnalysis ea = new ExploitableAnalysis(du.getDuGraphs(), curFunc, crashPointAddress,
-                    crashFilteringResult);
-            if (ea.isExploitable()) {
+            TaintSink ea = new ExploitableAnalysis(du.getDuGraphs(), curFunc, crashPointAddress, crashFilteringResult);
+            
+            
+            if (ea.isTaintSink()) {
                 Map<Instruction, List<Instruction>> exploitPaths = ea.getExploitArmPaths();
 
                 if (!exploitPaths.isEmpty()) {
