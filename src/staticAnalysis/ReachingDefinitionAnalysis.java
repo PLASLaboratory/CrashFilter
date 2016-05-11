@@ -32,10 +32,10 @@ import helper.CrashSourceAdder;
 
 public class ReachingDefinitionAnalysis {
 	private ILatticeGraph<InstructionGraphNode> graph;
-	IStateVector<InstructionGraphNode, RTableLatticeElement> locResult;
-	IStateVector<InstructionGraphNode, EnvLatticeElement> envResult;
-	Long crashAddr  =null;
-	boolean monotoneChecker = true;;
+	private IStateVector<InstructionGraphNode, RTableLatticeElement> locResult;
+	private IStateVector<InstructionGraphNode, EnvLatticeElement> envResult;
+	private Long crashAddr  =null;
+	private boolean monotoneChecker = true;;
 	
 	public ReachingDefinitionAnalysis( ILatticeGraph<InstructionGraphNode> graph , Long crashAddr){
 		this.graph = graph;

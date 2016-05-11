@@ -46,7 +46,6 @@ import data.ReilInstructionResolve;
 import helper.CallStackCleaner;
 import helper.CrashFileScanner;
 import helper.CrashSourceAdder;
-import helper.FunctionCallManager;
 import helper.HeapChecker;
 import helper.VariableFinder;
 import staticAnalysis.RDAnalysis.RDLatticeElement;

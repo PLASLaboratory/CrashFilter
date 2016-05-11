@@ -3,8 +3,8 @@ package helper;
 import com.google.security.zynamics.binnavi.API.gui.LogConsole;
 
 public class MemoryCounter {
-	int numOfStackMemory;
-	int numOfHeapMemory;
+    private int numOfStackMemory;
+    private int numOfHeapMemory;
 	
 	
 	private static MemoryCounter memoryCounter;

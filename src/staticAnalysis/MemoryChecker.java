@@ -16,7 +16,8 @@ import crashfilter.va.memlocations.StructuredMLoc;
 import crashfilter.va.regs.ActualReg;
 
 public class MemoryChecker {
-	IStateVector<InstructionGraphNode, MLocLatticeElement> mLocResult;
+    private IStateVector<InstructionGraphNode, MLocLatticeElement> mLocResult;
+    
 	public void setMLocResult(IStateVector<InstructionGraphNode, MLocLatticeElement> mLocResult)
 	{
 		this.mLocResult = mLocResult;

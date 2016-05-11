@@ -22,7 +22,7 @@ import helper.HeapChecker;
 public class LocAnalysis {
 	private ILatticeGraph<InstructionGraphNode> graph;
 	private Function function;
-	HeapChecker heapChecker = new HeapChecker(graph, function);
+	private HeapChecker heapChecker = new HeapChecker(graph, function);
 	
 	
 	public LocAnalysis( ILatticeGraph<InstructionGraphNode> graph , Function function ){

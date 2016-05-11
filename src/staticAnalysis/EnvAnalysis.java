@@ -29,7 +29,7 @@ import data.ReilInstructionResolve;
 public class EnvAnalysis {
 	private ILatticeGraph<InstructionGraphNode> graph;
 	private Function function;
-	HeapChecker heapChecker = HeapChecker.initHeapChecker(graph, function);
+	private HeapChecker heapChecker = HeapChecker.initHeapChecker(graph, function);
 	
 	
 	public void LocAnalysis( ILatticeGraph<InstructionGraphNode> graph , Function function ){

@@ -26,7 +26,7 @@ import crashfilter.va.regs.TempReg;
 
 public class RTable extends AbstractMap<IRegister, Set<IValue>> implements Map<IRegister, Set<IValue>> {
 
-Set<java.util.Map.Entry<IRegister, Set<IValue>>> tableEntries;
+    private Set<java.util.Map.Entry<IRegister, Set<IValue>>> tableEntries;
 	
 	public Set<IValue> put(IRegister s, Set<IValue> v){
 		tableEntries.add(new AbstractMap.SimpleEntry<IRegister, Set<IValue>>(s, v));

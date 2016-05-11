@@ -1,4 +1,4 @@
-package helper;
+package staticAnalysis;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -13,9 +13,11 @@ import com.google.security.zynamics.binnavi.API.disassembly.Module;
 import com.google.security.zynamics.binnavi.API.disassembly.Operand;
 import com.google.security.zynamics.binnavi.API.reil.InternalTranslationException;
 
-public class FunctionCallManager {
+import helper.VariableFinder;
 
-    Function currentFunction;
+public class FunctionCallAnalysis {
+
+    private Function currentFunction;
     private VariableFinder variableFinder;
     private Module module;
     private List<Function> callees = new ArrayList<Function>();
@@ -24,7 +26,7 @@ public class FunctionCallManager {
         return callees;
     }
 
-    public FunctionCallManager(Module module, Function function) {
+    public FunctionCallAnalysis(Module module, Function function) {
         currentFunction = function;
         variableFinder = new VariableFinder(module, currentFunction);
         this.module = module;
@@ -46,9 +48,6 @@ public class FunctionCallManager {
         return null;
     }
 
-    public boolean dontHaveToAnalysis() {
-        return dontHaveArgument() && dontUseGlobalVariable();
-    }
 
     public boolean dontHaveArgument() {
         return variableFinder.getUsedArguments().size() == 0;

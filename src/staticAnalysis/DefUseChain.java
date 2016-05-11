@@ -25,12 +25,12 @@ import staticAnalysis.RDAnalysis.RDLatticeElement;
 
 public class DefUseChain {
 	private Map<InstructionGraphNode, List<InstructionGraphNode>> defUseChains = new HashMap<InstructionGraphNode, List<InstructionGraphNode>>();
-	IStateVector<InstructionGraphNode, RDLatticeElement> RDResult;
-	ILatticeGraph<InstructionGraphNode> graph;
-	List<DefUseGraph> duGraphs = new ArrayList<DefUseGraph>();
-	IStateVector<InstructionGraphNode, MLocLatticeElement> mLocResult;
-	boolean crashSrcAnalysis = false; //if it is true , ver 1.2
-	long crashPointAddress = 0;
+	private IStateVector<InstructionGraphNode, RDLatticeElement> RDResult;
+	private ILatticeGraph<InstructionGraphNode> graph;
+	private List<DefUseGraph> duGraphs = new ArrayList<DefUseGraph>();
+	private IStateVector<InstructionGraphNode, MLocLatticeElement> mLocResult;
+	private boolean crashSrcAnalysis = false; //if it is true , ver 1.2
+	private long crashPointAddress = 0;
 	
 	public void setMemoryResult(	IStateVector<InstructionGraphNode, MLocLatticeElement> mLocResult) {
 		this.mLocResult = mLocResult;		

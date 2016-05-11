@@ -17,8 +17,8 @@ import com.google.security.zynamics.binnavi.API.gui.LogConsole;
 
 public class VariableFinder {
 
-    Module module;
-    Function function;
+    private  Module module;
+    private  Function function;
 
     private List<GlobalVariable> globalVariables = new ArrayList<GlobalVariable>();
 

@@ -12,8 +12,9 @@ import com.google.security.zynamics.binnavi.API.reil.mono.InstructionGraphNode;
 
 public class CrashSourceAdder {
 	
-	static ReilInstruction addedCrashInstSrc;
-	long crashReilAddr ;
+    private static ReilInstruction addedCrashInstSrc;
+    private long crashReilAddr ;
+    
 	public static List<InstructionGraphNode> getInstructionlist( ILatticeGraph<InstructionGraphNode> graph , Long crashAddr)
 	{
 		List<InstructionGraphNode> originalList = graph.getNodes();

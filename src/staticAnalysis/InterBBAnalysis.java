@@ -3,19 +3,21 @@ package staticAnalysis;
 import com.google.security.zynamics.binnavi.API.disassembly.Function;
 import com.google.security.zynamics.binnavi.API.disassembly.Module;
 
-import helper.FunctionCallManager;
-
 public class InterBBAnalysis {
 
-    FunctionCallManager functionCallManager ;
+    private FunctionCallAnalysis functionCallAnalysis ;
+    private GlobalVariableAnalysis globalVariableAnalysis;
     
     public InterBBAnalysis(Module module, Function curFunc){
     
-        functionCallManager = new FunctionCallManager(module, curFunc);
+        functionCallAnalysis = new FunctionCallAnalysis(module, curFunc);
+        globalVariableAnalysis = new GlobalVariableAnalysis(module, curFunc);
     }
-    
-    public boolean needAnalysis() {   
-        return !functionCallManager.dontHaveToAnalysis();
+
+    public boolean needAnalysis() {
+        // TODO Auto-generated method stub
+        return false;
     }
+
     
 }
