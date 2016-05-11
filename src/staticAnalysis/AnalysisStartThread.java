@@ -46,6 +46,7 @@ import data.ReilInstructionResolve;
 import helper.CallStackCleaner;
 import helper.CrashFileScanner;
 import helper.CrashSourceAdder;
+import helper.FunctionCallManager;
 import helper.HeapChecker;
 import helper.VariableFinder;
 import staticAnalysis.RDAnalysis.RDLatticeElement;
@@ -192,6 +193,14 @@ public class AnalysisStartThread implements IProgressThread {
             }
             /*******************************************************/
 
+            
+            InterBBAnalysis interBBAnalysis = new InterBBAnalysis(module, curFunc);
+            
+            if(interBBAnalysis.needAnalysis())
+            {
+                System.out.println("it need to Analysis!!");
+            }
+            
             System.out.println("== start EEEEEEEEEEEEEEE ==\n");
             RDAnalysis rda = new RDAnalysis(graph, crashPointAddress);
             RDResult = rda.RDAnalysis();
@@ -249,12 +258,12 @@ public class AnalysisStartThread implements IProgressThread {
             viewIndex++;
 
             // how many 'call' instruction in function
-            callCounter = getNumOfFunctionCalls(graph, curFunc);
+            // callCounter = getNumOfFunctionCalls(graph, curFunc);
             if (hasFunctionCalls(graph, curFunc)) {
                 tobeInterprocedureAnalysis.add(crashAddr);
             }
 
-            FunctionCallManager interBBAnalysis = new FunctionCallManager(module, curFunc);
+            
 
         }
 
@@ -351,34 +360,7 @@ public class AnalysisStartThread implements IProgressThread {
         return hasCall;
     }
 
-    private int getNumOfFunctionCalls(ILatticeGraph<InstructionGraphNode> graph, Function curFunc) {
 
-        boolean flag = false;
-        for (InstructionGraphNode inst : graph.getNodes()) {
-            Address instAddr = inst.getInstruction().getAddress();
-            long instAddrLong = instAddr.toLong();
-            instAddrLong /= 0x100;
-            Instruction nativeInst = ReilInstructionResolve.findNativeInstruction(curFunc, instAddrLong);
-
-            if (nativeInst.getMnemonic().equals("call")) {
-                callCounter++;
-                break;
-            } else if (nativeInst.getMnemonic().equals("BL")) {
-                for (Operand oprand : nativeInst.getOperands()) {
-                    if (oprand.toString().contains("sub_")) {
-                        callCounter++;
-                        flag = true;
-                        break;
-                    }
-                }
-                if (flag) {
-                    flag = false;
-                    break;
-                }
-            }
-        }
-        return callCounter;
-    }
 
     private IStateVector<InstructionGraphNode, MLocLatticeElement> memoryAnalysis(
             ILatticeGraph<InstructionGraphNode> graph, Function curFunc,

@@ -80,6 +80,7 @@ public class VariableFinder {
     }
 
     private void findUsedGlobalVariables() {
+        //TODO
         for (String operand : usedOperands) {
             for (GlobalVariable globalVariable : globalVariables) {
                 if (operand.contains(globalVariable.getName())) {

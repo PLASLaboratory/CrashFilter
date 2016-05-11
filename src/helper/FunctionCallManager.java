@@ -1,4 +1,4 @@
-package staticAnalysis;
+package helper;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -12,8 +12,6 @@ import com.google.security.zynamics.binnavi.API.disassembly.Instruction;
 import com.google.security.zynamics.binnavi.API.disassembly.Module;
 import com.google.security.zynamics.binnavi.API.disassembly.Operand;
 import com.google.security.zynamics.binnavi.API.reil.InternalTranslationException;
-
-import helper.VariableFinder;
 
 public class FunctionCallManager {
 
