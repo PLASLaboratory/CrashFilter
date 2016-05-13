@@ -136,36 +136,7 @@ public class ReachingDefinitionAnalysis {
 			return combinedState;
 		}
 	}
-	
-	public class RDTransferFunction implements ITransformationProvider<InstructionGraphNode, RDLatticeElement>{
-		@Override
-		public RDLatticeElement transform(
-				InstructionGraphNode node,
-				RDLatticeElement currentState,
-				RDLatticeElement inputState
-				) {
 
-			
-			long crashSourceInstAddr = CrashSourceAdder.getInstruction(graph, crashAddr).getInstruction().getAddress().toLong();
-			long nextAddr = CrashSourceAdder.getNextAddrOfCrash(graph, crashAddr);
-			long nowAddr = node.getInstruction().getAddress().toLong();
-			//each InstructionGraphNodes like LDM and STM, we can resolve the memory access operand using value-set analysis result
-			RDLatticeElement transformedState = new RDLatticeElement();
-						
-
-			transformedState.unionInstList(inputState.getInstList());
-			transformedState.removeAllInstList(currentState.getKillList());
-			
-			if(!(ReilInstructionResolve.resolveReilInstructionDest(node).isEmpty())){			
-				transformedState.insertInst(node);
-			}
-			
-			
-			transformedState.unionKillList(currentState.getKillList());
-			
-			return transformedState;
-		}
-	}
 	
 	
 
@@ -197,30 +168,6 @@ public class ReachingDefinitionAnalysis {
 	}
 
 
-	public IStateVector<InstructionGraphNode, RDLatticeElement> reachingDefinitionAnalysis() throws MLocException {
-//		 MessageBox.showInformation(null, "MenuPlugin test!!");
-		 RDLattice lattice;
-		 IStateVector<InstructionGraphNode, RDLatticeElement> startVector;
-		 IStateVector<InstructionGraphNode, RDLatticeElement> endVector;
-		 
-		 ITransformationProvider<InstructionGraphNode, RDLatticeElement> transferFunction;
-		 DownWalker<InstructionGraphNode> walker;
-		 MonotoneSolver<InstructionGraphNode, RDLatticeElement, Object, RDLattice> solver;
-
-
-		 lattice = new RDLattice();
-		 
-		 startVector = initializeState(graph);
-		 transferFunction = new RDTransferFunction();
-		 walker = new DownWalker<InstructionGraphNode>();
-		 solver = new MonotoneSolver<InstructionGraphNode, RDLatticeElement, Object, RDLattice>(
-				 graph, lattice, startVector, transferFunction, walker
-				 );
-		 
-
-		 return endVector = solver.solve();			 
-	}
-	
 	public void printRD(IStateVector<InstructionGraphNode, RDLatticeElement> endVector){	 
 		
 		RDLatticeElement state = null;
@@ -236,11 +183,6 @@ public class ReachingDefinitionAnalysis {
 			 }
 		 }
 	}
-	
-	
-	
-	
-	/////  
 	
 	public boolean differentMemoryCheckRTable(InstructionGraphNode inst1, InstructionGraphNode inst2 )
 	{

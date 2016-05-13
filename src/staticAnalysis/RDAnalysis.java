@@ -141,33 +141,7 @@ public class RDAnalysis {
 		}
 	}
 	
-	public class RDTransferFunction implements ITransformationProvider<InstructionGraphNode, RDLatticeElement>{
-		@Override
-		public RDLatticeElement transform(
-				InstructionGraphNode node,
-				RDLatticeElement currentState,
-				RDLatticeElement inputState
-				) {
 
-			
-			//each InstructionGraphNodes like LDM and STM, we can resolve the memory access operand using value-set analysis result
-			RDLatticeElement transformedState = new RDLatticeElement();
-						
-
-			transformedState.unionInstList(inputState.getInstList());
-			transformedState.removeAllInstList(currentState.getKillList());
-			
-			if(!(ReilInstructionResolve.resolveReilInstructionDest(node).isEmpty())){			
-				transformedState.insertInst(node);
-			}
-			
-			
-			transformedState.unionKillList(currentState.getKillList());
-			
-			return transformedState;
-		}
-	}
-	
 	
 
 	
@@ -202,31 +176,7 @@ public class RDAnalysis {
 	}
 
 
-	public IStateVector<InstructionGraphNode, RDLatticeElement> reachingDefinitionAnalysis() throws MLocException {
-//		 MessageBox.showInformation(null, "MenuPlugin test!!");
-		 RDLattice lattice;
-		 IStateVector<InstructionGraphNode, RDLatticeElement> startVector;
-		 IStateVector<InstructionGraphNode, RDLatticeElement> endVector;
-		 
-		 ITransformationProvider<InstructionGraphNode, RDLatticeElement> transferFunction;
-		 DownWalker<InstructionGraphNode> walker;
-		 MonotoneSolver<InstructionGraphNode, RDLatticeElement, Object, RDLattice> solver;
-
-
-		 lattice = new RDLattice();
-		 
-		 startVector = initializeState(graph);
-		 transferFunction = new RDTransferFunction();
-		 walker = new DownWalker<InstructionGraphNode>();
-		 solver = new MonotoneSolver<InstructionGraphNode, RDLatticeElement, Object, RDLattice>(
-				 graph, lattice, startVector, transferFunction, walker
-				 );
-		 
-
-		 return endVector = solver.solve();			 
-	}
-	
-	public IStateVector<InstructionGraphNode, RDLatticeElement> RDAnalysis() throws MLocException{
+	public IStateVector<InstructionGraphNode, RDLatticeElement> runRDAnalysis() throws MLocException{
 		RDLattice lattice;
 		IStateVector<InstructionGraphNode, RDLatticeElement> startVector;
 		IStateVector<InstructionGraphNode, RDLatticeElement> endVector = new DefaultStateVector<InstructionGraphNode, RDLatticeElement>();
@@ -263,50 +213,24 @@ public class RDAnalysis {
 			{
 				List<InstructionGraphNode> preds = getPredNodes(node);
 				
-				if(preds.size() ==0)
+				if(hasNoPred(preds))
 				{
-					RDLatticeElement entry = new RDLatticeElement();
-					entry.setInst(node);
-					entry.instList = new HashSet<InstructionGraphNode>();
-					entry.insertInst(node);
-					entry.inst = node;
-					endVector.setState(node, entry);
+					settingEntry(endVector, node);
 					continue;
 				}			
 				else
 				{
 					//transform					
 					//meet operation U
-					RDLatticeElement inputElement = unionPred(vector, preds);
-					RDLatticeElement currentState = vector.getState(node);
-					
-					RDLatticeElement transformedState = new RDLatticeElement();
-					
-					
-					transformedState.unionInstList(inputElement.getInstList());					
-					
-					transformedState.removeAllInstList(currentState.getKillList());							
-					if(!(ReilInstructionResolve.resolveReilInstructionDest(node).isEmpty())){			
-						transformedState.insertInst(node);
-					}
-					
-					transformedState.unionKillList(currentState.getKillList());
-				
-					if(nextAddrOfCrash == node.getInstruction().getAddress().toLong())
-					{
-						transformedState.insertInst(crashSrcNode);
-					}
-					
-					
-					if(transformedState.lessThan(currentState))
-					{
-						System.out.println("Error : lessssssss");
-					}
+				    RDLatticeElement transformedState = new RDLatticeElement();
+				    RDLatticeElement currentState = applyMeetOperation(vector, node, preds, transformedState);				
+				    transferomState(crashSrcNode, nextAddrOfCrash, node, transformedState, currentState);
+				    
 					endVector.setState(node, transformedState);				
 				}
 			}
 			
-			changed = !vector.equals(endVector);
+			changed = isChanged(vector, endVector);
 			vector = endVector;
 			System.out.println("chagned : "+changed);
 			
@@ -314,10 +238,55 @@ public class RDAnalysis {
 		
 		return endVector;
 	}
+    private boolean isChanged(IStateVector<InstructionGraphNode, RDLatticeElement> vector,
+            IStateVector<InstructionGraphNode, RDLatticeElement> endVector) {
+        return !vector.equals(endVector);
+    }
+    private void transferomState(InstructionGraphNode crashSrcNode, long nextAddrOfCrash, InstructionGraphNode node,
+            RDLatticeElement transformedState, RDLatticeElement currentState) {
+        transformedState.removeAllInstList(currentState.getKillList());							
+        if(!(ReilInstructionResolve.resolveReilInstructionDest(node).isEmpty())){			
+        	transformedState.insertInst(node);
+        }
+        
+        transformedState.unionKillList(currentState.getKillList());
+
+        if(nextAddrOfCrash == node.getInstruction().getAddress().toLong())
+        {
+        	transformedState.insertInst(crashSrcNode);
+        }
+        
+        
+        if(transformedState.lessThan(currentState))
+        {
+        	System.out.println("Error : RDAnalysis - runRD - lessThan");
+        }
+    }
+    private RDLatticeElement applyMeetOperation(IStateVector<InstructionGraphNode, RDLatticeElement> vector,
+            InstructionGraphNode node, List<InstructionGraphNode> preds, RDLatticeElement transformedState) {
+        RDLatticeElement currentState = vector.getState(node);					
+        RDLatticeElement inputElement = unionPred(vector, preds);
+        
+        
+        transformedState.unionInstList(inputElement.getInstList());
+        return currentState;
+    }
+    private void settingEntry(IStateVector<InstructionGraphNode, RDLatticeElement> endVector,
+            InstructionGraphNode node) {
+        RDLatticeElement entry = new RDLatticeElement();
+        entry.setInst(node);
+        entry.instList = new HashSet<InstructionGraphNode>();
+        entry.insertInst(node);
+        entry.inst = node;
+        endVector.setState(node, entry);
+    }
+    private boolean hasNoPred(List<InstructionGraphNode> preds) {
+        return preds.size() ==0;
+    }
 	
 	private RDLatticeElement unionPred(IStateVector<InstructionGraphNode, RDLatticeElement> vector, List<InstructionGraphNode> preds)
 	{
-		if(preds.size() ==0 )
+		if(hasNoPred(preds) )
 		{
 			return null;
 		}

@@ -58,7 +58,7 @@ public class VariableFinder {
         gvm.getVariables();
 
         globalVariables = gvm.getVariables();
-        System.out.println("global : \n" + globalVariables);
+        
     }
 
     private Set<String> findUsedOperands() {

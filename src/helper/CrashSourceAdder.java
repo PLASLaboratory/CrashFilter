@@ -89,7 +89,7 @@ public class CrashSourceAdder {
 		long preInstAddr= 0x00;
 		ReilOperand toBeAddOperand = null;
 		
-		long res=0;
+		long nextAddrOfCrash=0;
 		
 		for(InstructionGraphNode inst : originalList)
 		{
@@ -100,7 +100,7 @@ public class CrashSourceAdder {
 				Address addr = new Address(preInstAddr+1);
 				crashInstruction = makeCrashSrcInstruction(addr,toBeAddOperand);
 				addFlag = false;
-				res = inst.getInstruction().getAddress().toLong();
+				nextAddrOfCrash = inst.getInstruction().getAddress().toLong();
 				break;
 			}
 			
@@ -112,12 +112,11 @@ public class CrashSourceAdder {
 			preInstAddr = instAddr;
 			
 		}
-		return res;
+		return nextAddrOfCrash;
 	}
 	
 	
 	private static InstructionGraphNode makeCrashSrcInstruction(Address crashAddr ,ReilOperand reilOperand) {
-		// TODO Auto-generated method stub
 		ReilOperand firstOperand = new ReilOperand(OperandSize.OPERAND_SIZE_DWORD, "EMPTY");
 		ReilOperand secondOperand = new ReilOperand(OperandSize.OPERAND_SIZE_DWORD, "EMPTY");
 		ReilOperand destOperand = reilOperand;

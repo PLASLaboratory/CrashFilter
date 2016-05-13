@@ -1,7 +1,6 @@
 package staticAnalysis;
 
 import java.io.File;
-import java.io.FilenameFilter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -13,8 +12,6 @@ import com.google.security.zynamics.binnavi.API.disassembly.Address;
 import com.google.security.zynamics.binnavi.API.disassembly.CouldntLoadDataException;
 import com.google.security.zynamics.binnavi.API.disassembly.CouldntSaveDataException;
 import com.google.security.zynamics.binnavi.API.disassembly.Function;
-import com.google.security.zynamics.binnavi.API.disassembly.GlobalVariable;
-import com.google.security.zynamics.binnavi.API.disassembly.GlobalVariablesManager;
 import com.google.security.zynamics.binnavi.API.disassembly.Instruction;
 import com.google.security.zynamics.binnavi.API.disassembly.Module;
 import com.google.security.zynamics.binnavi.API.disassembly.ModuleHelpers;
@@ -47,7 +44,6 @@ import helper.CallStackCleaner;
 import helper.CrashFileScanner;
 import helper.CrashSourceAdder;
 import helper.HeapChecker;
-import helper.VariableFinder;
 import staticAnalysis.RDAnalysis.RDLatticeElement;
 import view.ExploitPathView;
 
@@ -57,7 +53,7 @@ public class AnalysisStartThread implements IProgressThread {
     final private Module module;
     private Map<String, String> crashFilteringResult = new HashMap<>();
 
-    private String crashAddr = ""; 
+    private String crashAddr = "";
     boolean singleCrashCheck = false;
     boolean memoryAnalysisCheck = false;
     boolean crashSrcAnalysis = false;
@@ -65,6 +61,9 @@ public class AnalysisStartThread implements IProgressThread {
     int e_path_cnt = 0;
     int pe_path_cnt = 0;
     int callCounter = 0;
+    private int e_cnt;
+    private int pe_cnt;
+    private int ne_cnt;
 
     public AnalysisStartThread(PluginInterface m_plugin, File crachFolder, Module module, String crashAddr,
             int optionalCode) {
@@ -84,8 +83,6 @@ public class AnalysisStartThread implements IProgressThread {
 
     }
 
-
-
     @Override
     public void run() throws MLocException {
         // TODO Auto-generated method stub
@@ -94,10 +91,10 @@ public class AnalysisStartThread implements IProgressThread {
         IStateVector<InstructionGraphNode, RTableLatticeElement> locResult = null;
         IStateVector<InstructionGraphNode, EnvLatticeElement> envResult = null;
         IStateVector<InstructionGraphNode, MLocLatticeElement> mLocResult = null;
-        
+
         Map<Long, CrashPoint> crashPointToFuncAddr = new HashMap<Long, CrashPoint>();
         findFunctionFromCrashPointAddr(crashPointToFuncAddr);
-        
+
         LogConsole.log("Parsing File Number : " + crashPointToFuncAddr.size() + "\n\n");
 
         HashSet<Long> count = new HashSet<>();
@@ -130,7 +127,7 @@ public class AnalysisStartThread implements IProgressThread {
                 System.out.println("dubugging" + "/");
                 // continue;
             }
-            
+
             Instruction crashInst = ReilInstructionResolve.findNativeInstruction(curFunc, crashPointAddress);
 
             if (curFunc == null) {
@@ -164,9 +161,6 @@ public class AnalysisStartThread implements IProgressThread {
                 }
             }
 
-            
-            
-
             if (curReilFunc != null) {
                 graph = InstructionGraph.create(curReilFunc.getGraph()); // API's
                                                                          // Structure
@@ -180,25 +174,22 @@ public class AnalysisStartThread implements IProgressThread {
                     }
                 }
             }
-            
-            
+
             /*********** MLocAnalysis_RTable+Env ********************/
             if (memoryAnalysisCheck) {
                 mLocResult = memoryAnalysis(graph, curFunc, mLocResult);
             }
             /*******************************************************/
 
-            
             InterBBAnalysis interBBAnalysis = new InterBBAnalysis(module, curFunc);
-            
-            if(interBBAnalysis.needAnalysis())
-            {
+
+            if (interBBAnalysis.needAnalysis()) {
                 System.out.println("it need to Analysis!!");
             }
-            
+
             System.out.println("== start EEEEEEEEEEEEEEE ==\n");
             RDAnalysis rda = new RDAnalysis(graph, crashPointAddress);
-            RDResult = rda.RDAnalysis();
+            RDResult = rda.runRDAnalysis();
 
             LogConsole.log("== end rd analysis ==\n");
 
@@ -218,8 +209,7 @@ public class AnalysisStartThread implements IProgressThread {
             LogConsole.log("== end DU analysis ==\n");
 
             TaintSink ea = new ExploitableAnalysis(du.getDuGraphs(), curFunc, crashPointAddress, crashFilteringResult);
-            
-            
+
             if (ea.isTaintSink()) {
                 Map<Instruction, List<Instruction>> exploitPaths = ea.getExploitArmPaths();
 
@@ -259,16 +249,24 @@ public class AnalysisStartThread implements IProgressThread {
                 tobeInterprocedureAnalysis.add(crashAddr);
             }
 
-            
-
         }
 
         LogConsole.log(cihm.toString());
 
-        int e_cnt = 0;
-        int pe_cnt = 0;
-        int ne_cnt = 0;
+        countExploitableCrash();
+        printExploitableCount(e_cnt, pe_cnt, ne_cnt);
+        printExploitablePathCount();
+        System.out.println("call Count : " + callCounter);
+
+    }
+
+    private void countExploitableCrash() {
+        e_cnt = 0;
+        pe_cnt = 0;
+        ne_cnt = 0;
+        
         for (String str : crashFilteringResult.keySet()) {
+            
             System.out.println("0x" + str + "  :  " + crashFilteringResult.get(str));
             if (crashFilteringResult.get(str).equals("E"))
                 e_cnt++;
@@ -276,29 +274,25 @@ public class AnalysisStartThread implements IProgressThread {
                 pe_cnt++;
             if (crashFilteringResult.get(str).equals("NE"))
                 ne_cnt++;
+            
         }
+    }
+    
 
+
+    private void printExploitablePathCount() {
+        System.out.println("count of E and PE path");
+        System.out.println("E: " + e_path_cnt);
+        System.out.println("PE: " + pe_path_cnt);
+        System.out.println("total: " + (e_path_cnt + pe_path_cnt));
+    }
+
+    private void printExploitableCount(int e_cnt, int pe_cnt, int ne_cnt) {
         System.out.println("Exploitable Analysis");
         System.out.println("E," + e_cnt);
         System.out.println("PE, " + pe_cnt);
         System.out.println("NE, " + ne_cnt);
         System.out.println("total: " + (e_cnt + pe_cnt + ne_cnt));
-
-        System.out.println("count of E and PE path");
-        System.out.println("E: " + e_path_cnt);
-        System.out.println("PE: " + pe_path_cnt);
-        System.out.println("total: " + (e_path_cnt + pe_path_cnt));
-
-        System.out.println("call Count : " + callCounter);
-
-        for (String str : tobeInterprocedureAnalysis) {
-            //System.out.println("0x" + str);
-        }
-
-        System.out.println("=============test============");
-
-        System.out.println();
-        System.out.println();
     }
 
     private void findFunctionFromCrashPointAddr(Map<Long, CrashPoint> crashPointToFuncAddr) {
@@ -316,7 +310,7 @@ public class AnalysisStartThread implements IProgressThread {
                 LogConsole.log("path   : \n");
                 LogConsole.log("filter : \n");
             } else {
-                //LogConsole.log("error multi crash check1 \n");
+                // LogConsole.log("error multi crash check1 \n");
                 return;
             }
         } else {
@@ -326,7 +320,7 @@ public class AnalysisStartThread implements IProgressThread {
                 LogConsole.log("path   : \n");
                 LogConsole.log("filter : \n");
             } else {
-                //LogConsole.log("error single crash check2 \n");
+                // LogConsole.log("error single crash check2 \n");
                 return;
             }
 
@@ -356,8 +350,6 @@ public class AnalysisStartThread implements IProgressThread {
         return hasCall;
     }
 
-
-
     private IStateVector<InstructionGraphNode, MLocLatticeElement> memoryAnalysis(
             ILatticeGraph<InstructionGraphNode> graph, Function curFunc,
             IStateVector<InstructionGraphNode, MLocLatticeElement> mLocResult) throws MLocException {
@@ -379,7 +371,7 @@ public class AnalysisStartThread implements IProgressThread {
         LogConsole.log("== end memoryAnalysis ==\n");
         // envAnalysis.printEnv(envResult);
         // LogConsole.log("== end print env analysis ===\n");
-
+        
         return mLocResult;
 
     }
@@ -389,6 +381,5 @@ public class AnalysisStartThread implements IProgressThread {
         // TODO Auto-generated method stub
         return false;
     }
-
 
 }
