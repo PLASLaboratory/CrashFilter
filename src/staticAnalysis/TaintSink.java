@@ -9,6 +9,7 @@ public interface TaintSink {
 
     boolean isTaintSink();
     Map<Instruction, List<Instruction>> getExploitArmPaths();
+    
     int getTotal_e_count();
     int getTotal_pe_count();
     

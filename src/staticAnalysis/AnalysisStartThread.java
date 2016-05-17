@@ -34,8 +34,6 @@ import com.google.security.zynamics.binnavi.API.reil.mono.InstructionGraphNode;
 
 import crashfilter.va.MLocAnalysis.MLocAnalysis;
 import crashfilter.va.MLocAnalysis.MLocLatticeElement;
-import crashfilter.va.MLocAnalysis.RTable.RTableLatticeElement;
-import crashfilter.va.MLocAnalysis.env.EnvLatticeElement;
 import crashfilter.va.memlocations.MLocException;
 import data.CountInstructionHashMap;
 import data.CrashPoint;
@@ -88,8 +86,6 @@ public class AnalysisStartThread implements IProgressThread {
         // TODO Auto-generated method stub
         ILatticeGraph<InstructionGraphNode> graph = null;
         IStateVector<InstructionGraphNode, RDLatticeElement> RDResult = null;
-        IStateVector<InstructionGraphNode, RTableLatticeElement> locResult = null;
-        IStateVector<InstructionGraphNode, EnvLatticeElement> envResult = null;
         IStateVector<InstructionGraphNode, MLocLatticeElement> mLocResult = null;
 
         Map<Long, CrashPoint> crashPointToFuncAddr = new HashMap<Long, CrashPoint>();
@@ -97,7 +93,6 @@ public class AnalysisStartThread implements IProgressThread {
 
         LogConsole.log("Parsing File Number : " + crashPointToFuncAddr.size() + "\n\n");
 
-        HashSet<Long> count = new HashSet<>();
         List<String> tobeInterprocedureAnalysis = new ArrayList<>();
         CountInstructionHashMap cihm = new CountInstructionHashMap();
         int viewIndex = 0;
@@ -233,6 +228,7 @@ public class AnalysisStartThread implements IProgressThread {
                 }
 
             }
+            
             e_path_cnt += ea.getTotal_e_count();
             pe_path_cnt += ea.getTotal_pe_count();
 
