@@ -8,13 +8,17 @@ import java.util.Map;
 import java.util.Set;
 import java.util.Stack;
 
+import com.google.security.zynamics.binnavi.API.disassembly.BasicBlock;
+import com.google.security.zynamics.binnavi.API.disassembly.FlowGraph;
 import com.google.security.zynamics.binnavi.API.disassembly.Function;
 import com.google.security.zynamics.binnavi.API.disassembly.Instruction;
-import com.google.security.zynamics.binnavi.API.gui.LogConsole;
+import com.google.security.zynamics.binnavi.API.reil.InternalTranslationException;
+import com.google.security.zynamics.binnavi.API.reil.ReilFunction;
 import com.google.security.zynamics.binnavi.API.reil.ReilHelpers;
 import com.google.security.zynamics.binnavi.API.reil.ReilInstruction;
 import com.google.security.zynamics.binnavi.API.reil.ReilOperand;
 import com.google.security.zynamics.binnavi.API.reil.mono.IStateVector;
+import com.google.security.zynamics.binnavi.API.reil.mono.InstructionGraph;
 import com.google.security.zynamics.binnavi.API.reil.mono.InstructionGraphNode;
 
 import data.ReilInstructionResolve;
@@ -26,24 +30,9 @@ public class ReturnValueAnalysis implements TaintSink {
     private Map<DefUseChain.DefUseNode, List<DefUseChain.DefUseNode>> taintedReilPaths = new HashMap<DefUseChain.DefUseNode, List<DefUseChain.DefUseNode>>();
     private Map<Instruction, List<Instruction>> taintedArmPaths = new HashMap<Instruction, List<Instruction>>();
 
-    private Map<String, String> crashFilteringResult;
     private String crashAddr;
 
-    private int e_count = 0;
-    private int pe_count = 0;
-
-    private int total_e_count = 0;
-
-    private int total_pe_count = 0;
     private IStateVector<InstructionGraphNode, RDLatticeElement> RDResult;
-
-    public int getTotal_e_count() {
-        return total_e_count;
-    }
-
-    public int getTotal_pe_count() {
-        return total_pe_count;
-    }
 
     public ReturnValueAnalysis(List<DefUseChain.DefUseGraph> duGraphs, Function func, Long crashAddr,
             Map<String, String> crashFilteringResult, IStateVector<InstructionGraphNode, RDLatticeElement> RDResult) {
@@ -51,7 +40,6 @@ public class ReturnValueAnalysis implements TaintSink {
         this.func = func;
         this.RDResult = RDResult;
         this.crashAddr = Long.toHexString(crashAddr);
-        this.crashFilteringResult = crashFilteringResult;
     }
 
     public Map<Instruction, List<Instruction>> getExploitArmPaths() {
@@ -111,13 +99,43 @@ public class ReturnValueAnalysis implements TaintSink {
         return isTaintSink;
     }
 
-    private boolean isLastDefOfReturnValue() {
-        // TODO Auto-generated method stub
+    private boolean isLastDefOfReturnValue(InstructionGraphNode inst) {
         if (RDResult == null) {
             System.out.println("error : RVA- isLastDefOfReturnValue()");
         }
 
-        return false;
+        InstructionGraphNode lastInstruction = getLastInstruction(func);
+        RDLatticeElement rdLatticeElement = RDResult.getState(lastInstruction);
+        return isReachableToLastInstruction(inst, rdLatticeElement);
+    }
+
+    private boolean isReachableToLastInstruction(InstructionGraphNode inst, RDLatticeElement rdLatticeElement) {
+        return rdLatticeElement.getReachableInstList().contains(inst);
+    }
+
+    private InstructionGraphNode getLastInstruction(Function func) {
+
+        InstructionGraph graph = transformGraph(func);
+
+        InstructionGraphNode lastInst = null;
+        for (InstructionGraphNode inst : graph.getNodes()) {
+            lastInst = inst;
+        }
+
+        return lastInst;
+
+    }
+
+    private InstructionGraph transformGraph(Function func) {
+        ReilFunction curReilFunc = null;
+        try {
+            curReilFunc = func.getReilCode();
+        } catch (InternalTranslationException e) {
+            e.printStackTrace();
+        }
+
+        InstructionGraph graph = InstructionGraph.create(curReilFunc.getGraph());
+        return graph;
     }
 
     private boolean isRetrunValueTainted() {
@@ -132,7 +150,7 @@ public class ReturnValueAnalysis implements TaintSink {
     }
 
     private boolean isDefUsedInAddressToBranch(InstructionGraphNode use, InstructionGraphNode def) {
-        if (ReilHelpers.isRegister(use.getInstruction().getThirdOperand())) {
+        if (hasRegisterThirdOperation(use)) {
             for (ReilOperand op : ReilInstructionResolve.resolveReilInstructionDest(def)) {
                 if (use.getInstruction().getThirdOperand().getValue().equals(op.getValue())) {
                     return true;
@@ -144,82 +162,40 @@ public class ReturnValueAnalysis implements TaintSink {
 
     }
 
-    private boolean isDefUsedInAddressToStore(InstructionGraphNode use, InstructionGraphNode def) {
-        if (ReilHelpers.isRegister(use.getInstruction().getThirdOperand())) {
-            for (ReilOperand op : ReilInstructionResolve.resolveReilInstructionDest(def)) {
-                if (use.getInstruction().getThirdOperand().getValue().equals(op.getValue())) {
-                    return true;
-                }
-            }
-            return false;
-        } else
-            return false;
-    }
-
-    private boolean isDefUsedInDataToStore(InstructionGraphNode use, InstructionGraphNode def) {
-        if (ReilHelpers.isRegister(use.getInstruction().getFirstOperand())) {
-            for (ReilOperand op : ReilInstructionResolve.resolveReilInstructionDest(def)) {
-                if (use.getInstruction().getFirstOperand().getValue().equals(op.getValue())) {
-                    return true;
-                }
-            }
-            return false;
-        } else
-            return false;
-    }
-
-    // to check the parents
-    // ---------------------------------------------------------------------
     private boolean isTaintedReturnValue(DefUseChain.DefUseNode node) {
 
         ReilInstruction inst = node.getInst().getInstruction();
 
-        if (inst.getMnemonic().equals("add") || inst.getMnemonic().equals("sub") || inst.getMnemonic().equals("mul")|| inst.getMnemonic().equals("div")) {
+        if (isBinaryOperation(inst)) {
             return false;
-        }
-        
-        /*
-        if (inst.getMnemonic().equals("jcc")) {
-            for (DefUseChain.DefUseNode duNode : node.getParents()) {
-                if (isDefUsedInAddressToBranch(node.getInst(), duNode.getInst())) {
-                    // LogConsole.log("E - jcc\n");
-                    e_count++;
-                    return true;
-                }
+        } else {
+            if (isLastDefOfReturnValue(node.getInst())) {
+                return isDefRetrunVauleWithTaint(node.getInst());
             }
-            return false;
         }
+        return false;
 
-        else if (inst.getMnemonic().equals("stm")) {
-            for (DefUseChain.DefUseNode duNode : node.getParents()) {
-                if (isDefUsedInAddressToStore(node.getInst(), duNode.getInst())) {
-                    if (isDefUsedInDataToStore(node.getInst(), duNode.getInst())) {
-                        // LogConsole.log("E - stm addr & data \n");
-                        e_count++;
-                        return true; // Exploitable
-                    }
-                    // LogConsole.log("PE - stm address\n");
-                    pe_count++;
-                    return true; // Probably Exploitable
-                } else if (isDefUsedInDataToStore(node.getInst(), duNode.getInst())) {
-                    // LogConsole.log("PE - stm data\n");
-                    pe_count++;
-                    return true;
-                }
-            }
-            return false;
-        }*/
+    }
 
-        else {
-            return false;
-        }
+    private boolean isDefRetrunVauleWithTaint(InstructionGraphNode def) {
+        // TODO
+        return (def.getInstruction().getThirdOperand().getValue().equals("eax")
+                || def.getInstruction().getThirdOperand().getValue().equals("r0"));
+    }
 
+    private boolean hasRegisterThirdOperation(InstructionGraphNode use) {
+        return ReilHelpers.isRegister(use.getInstruction().getThirdOperand());
+    }
+
+    private boolean isBinaryOperation(ReilInstruction inst) {
+        return inst.getMnemonic().equals("add") || inst.getMnemonic().equals("sub") || inst.getMnemonic().equals("mul")
+                || inst.getMnemonic().equals("div") || inst.getMnemonic().equals("mod")
+                || inst.getMnemonic().equals("xor") || inst.getMnemonic().equals("or")
+                || inst.getMnemonic().equals("and") || inst.getMnemonic().equals("bsh");
     }
 
     private void searchTaintedRetrunValue() {
         // All the graphs is analyzed at this function
-        e_count = 0;
-        pe_count = 0;
 
         for (DefUseChain.DefUseGraph duGraph : duGraphs) {
             Stack<DefUseChain.DefUseNode> stackDFS = new Stack<DefUseChain.DefUseNode>();
@@ -230,38 +206,19 @@ public class ReturnValueAnalysis implements TaintSink {
             // Depth First Search Algorithm
 
             System.out.println("search : " + duGraph.getNodes().get(0));
-            searchExploitableDFS(stackDFS, visitedNodes, duGraph.getNodes().get(0));
+            searchTaintRetrunValueDFS(stackDFS, visitedNodes, duGraph.getNodes().get(0));
         }
 
         printResultOnLog();
 
-        total_e_count += e_count;
-        total_pe_count += pe_count;
-
-        putFilteringResult(crashAddr, e_count, pe_count, crashFilteringResult);
     }
 
     private void printResultOnLog() {
-
-        LogConsole.log("crashAddr  : " + crashAddr + "\n");
-        LogConsole.log("e  : " + e_count + "\n");
-        LogConsole.log("pe : " + pe_count + "\n");
-        LogConsole.log("total : " + (e_count + pe_count) + "\n");
+        System.out.println(" I have nothing to tell..");
     }
 
-    private void putFilteringResult(String crashAddr, int e_count, int pe_count,
-            Map<String, String> crashFilteringResult) {
-        if (e_count > 0) {
-            crashFilteringResult.put(crashAddr, "E");
-        } else if (pe_count > 0) {
-            crashFilteringResult.put(crashAddr, "PE");
-        } else {
-            crashFilteringResult.put(crashAddr, "NE");
-        }
-    }
-
-    private void searchExploitableDFS(Stack<DefUseChain.DefUseNode> stackDFS, Set<DefUseChain.DefUseNode> visitedNode,
-            DefUseChain.DefUseNode duNode) {
+    private void searchTaintRetrunValueDFS(Stack<DefUseChain.DefUseNode> stackDFS,
+            Set<DefUseChain.DefUseNode> visitedNode, DefUseChain.DefUseNode duNode) {
 
         // current node processing
         visitedNode.add(duNode);
@@ -281,13 +238,19 @@ public class ReturnValueAnalysis implements TaintSink {
             DefUseChain.DefUseNode duNode) {
         for (DefUseChain.DefUseNode node : duNode.getChildren()) {
             if (!visitedNode.contains(node)) {
-                searchExploitableDFS(stackDFS, visitedNode, node);
+                searchTaintRetrunValueDFS(stackDFS, visitedNode, node);
             }
         }
     }
 
-    private boolean isLastInstruction() {
-        return false;
+    @Override
+    public int getTotal_e_count() {
+        return 0;
+    }
+
+    @Override
+    public int getTotal_pe_count() {
+        return 0;
     }
 
 }

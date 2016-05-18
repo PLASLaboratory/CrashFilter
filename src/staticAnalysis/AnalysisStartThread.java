@@ -206,6 +206,7 @@ public class AnalysisStartThread implements IProgressThread {
             TaintSink ea = new ExploitableAnalysis(du.getDuGraphs(), curFunc, crashPointAddress, crashFilteringResult);
 
             if (ea.isTaintSink()) {
+                
                 Map<Instruction, List<Instruction>> exploitPaths = ea.getExploitArmPaths();
 
                 if (!exploitPaths.isEmpty()) {
