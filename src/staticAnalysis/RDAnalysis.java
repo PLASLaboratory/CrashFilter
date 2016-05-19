@@ -1,23 +1,19 @@
 package staticAnalysis;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
 import com.google.security.zynamics.binnavi.API.gui.LogConsole;
 import com.google.security.zynamics.binnavi.API.reil.mono.DefaultStateVector;
-import com.google.security.zynamics.binnavi.API.reil.mono.DownWalker;
 import com.google.security.zynamics.binnavi.API.reil.mono.IInfluencingState;
 import com.google.security.zynamics.binnavi.API.reil.mono.ILattice;
 import com.google.security.zynamics.binnavi.API.reil.mono.ILatticeElement;
 import com.google.security.zynamics.binnavi.API.reil.mono.ILatticeGraph;
 import com.google.security.zynamics.binnavi.API.reil.mono.IStateVector;
-import com.google.security.zynamics.binnavi.API.reil.mono.ITransformationProvider;
 import com.google.security.zynamics.binnavi.API.reil.mono.InstructionGraphEdge;
 import com.google.security.zynamics.binnavi.API.reil.mono.InstructionGraphNode;
-import com.google.security.zynamics.binnavi.API.reil.mono.MonotoneSolver;
 
 import crashfilter.va.MLocAnalysis.RTable.RTableLatticeElement;
 import crashfilter.va.MLocAnalysis.env.EnvLatticeElement;
@@ -147,9 +143,6 @@ public class RDAnalysis {
         // gathering the kill set of each instruction
         // After memory access analysis, we have to use the results.
 
-        List<InstructionGraphNode> insts = CrashSourceAdder.getInstructionlist(graph, crashAddr);
-        InstructionGraphNode srcNode = CrashSourceAdder.getInstruction(graph, crashAddr);
-
         for (InstructionGraphNode defInst1 : graph.getNodes()) {
             state = new RDLatticeElement();
             for (InstructionGraphNode defInst2 : graph.getNodes()) {
@@ -168,13 +161,9 @@ public class RDAnalysis {
     }
 
     public IStateVector<InstructionGraphNode, RDLatticeElement> runRDAnalysis() throws MLocException {
-        RDLattice lattice;
+
         IStateVector<InstructionGraphNode, RDLatticeElement> startVector;
         IStateVector<InstructionGraphNode, RDLatticeElement> endVector = new DefaultStateVector<InstructionGraphNode, RDLatticeElement>();
-
-        ITransformationProvider<InstructionGraphNode, RDLatticeElement> transferFunction;
-
-        lattice = new RDLattice();
 
         startVector = initializeState(graph);
 
@@ -186,7 +175,7 @@ public class RDAnalysis {
             IStateVector<InstructionGraphNode, RDLatticeElement> startVector) {
 
         InstructionGraphNode crashSrcNode = CrashSourceAdder.getInstruction(graph, crashAddr);
-        long nextAddrOfCrash = CrashSourceAdder.getNextAddrOfCrash(graph, crashAddr);
+        long toBeInsertedAddress = CrashSourceAdder.getNextAddrOfCrash(graph, crashAddr);
 
         boolean changed = true;
         List<InstructionGraphNode> nodes = graph.getNodes();
@@ -204,8 +193,12 @@ public class RDAnalysis {
                     
                     RDLatticeElement transformedState = new RDLatticeElement();
                     RDLatticeElement currentState = applyMeetOperation(vector, node, preds, transformedState);
-                    transferomState(crashSrcNode, nextAddrOfCrash, node, transformedState, currentState);
-
+                    transferomState( node, transformedState, currentState);
+                    
+                    if (isInsertAddress(toBeInsertedAddress, node)) {
+                        transformedState.insertReachableInst(crashSrcNode);
+                    }
+                    
                     endVector.setState(node, transformedState);
                 }
             }
@@ -219,13 +212,16 @@ public class RDAnalysis {
         return endVector;
     }
 
+    private boolean isInsertAddress(long toBeInsertedAddress, InstructionGraphNode node) {
+        return toBeInsertedAddress == node.getInstruction().getAddress().toLong();
+    }
+
     private boolean isChanged(IStateVector<InstructionGraphNode, RDLatticeElement> vector,
             IStateVector<InstructionGraphNode, RDLatticeElement> endVector) {
         return !vector.equals(endVector);
     }
 
-    private void transferomState(InstructionGraphNode crashSrcNode, long nextAddrOfCrash, InstructionGraphNode node,
-            RDLatticeElement transformedState, RDLatticeElement currentState) {
+    private void transferomState( InstructionGraphNode node,   RDLatticeElement transformedState, RDLatticeElement currentState) {
 
         transformedState.removeAllReachableInstList(currentState.getKillList());
 
@@ -235,9 +231,7 @@ public class RDAnalysis {
 
         transformedState.unionKillList(currentState.getKillList());
 
-        if (nextAddrOfCrash == node.getInstruction().getAddress().toLong()) {
-            transformedState.insertReachableInst(crashSrcNode);
-        }
+     
 
         if (transformedState.lessThan(currentState)) {
             System.out.println("Error : RDAnalysis - runRD - lessThan");
