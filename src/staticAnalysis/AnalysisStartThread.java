@@ -42,6 +42,7 @@ import helper.CallStackCleaner;
 import helper.CrashFileScanner;
 import helper.CrashSourceAdder;
 import helper.HeapChecker;
+import helper.InterProcedureMode;
 import staticAnalysis.RDAnalysis.RDLatticeElement;
 import view.ExploitPathView;
 
@@ -99,6 +100,10 @@ public class AnalysisStartThread implements IProgressThread {
 
         for (Long crashPointAddress : crashPointToFuncAddr.keySet()) {
 
+            
+            InterProcedureMode interProcedureAnalysisMode = InterProcedureMode.NORMAL;
+            
+            
             crashAddr = Long.toHexString(crashPointAddress);
 
             LogConsole.log("now analyzing : " + Long.toHexString(crashPointAddress) + "\n");
@@ -107,84 +112,38 @@ public class AnalysisStartThread implements IProgressThread {
             ReilFunction curReilFunc = null;
             List<ReilInstruction> crashReilInst = new ArrayList<ReilInstruction>();
             List<InstructionGraphNode> crashInstructionGraphNode = new ArrayList<InstructionGraphNode>();
-            Function curFunc = ModuleHelpers.getFunction(module,
-                    crashPointToFuncAddr.get(crashPointAddress).getFuncAddr());
+            Function curFunc = ModuleHelpers.getFunction(module, crashPointToFuncAddr.get(crashPointAddress).getFuncAddr());
             // Function curFunc = ModuleHelpers.getFunction(module, 33760);
 
-            try {
-                if (!curFunc.isLoaded()) {
-                    curFunc.load();
-                }
-            } catch (CouldntLoadDataException e1) {
-                e1.printStackTrace();
-                // continue;
-            } catch (Exception e1) {
-                System.out.println("dubugging" + "/");
-                // continue;
-            }
-
-            Instruction crashInst = ReilInstructionResolve.findNativeInstruction(curFunc, crashPointAddress);
-
-            if (curFunc == null) {
-                System.out.println("function null!!!!");
-            }
-            if (crashInst == null) {
-                System.out.println("instruction null!!!!");
-            } else {
-                LogConsole.log(crashInst.toString() + "\n");
-                StringTokenizer st = new StringTokenizer(crashInst.toString(), " ");
-                st.nextToken();
-                cihm.put(st.nextToken(), 1);
-            }
+            Instruction crashInst = checkFunctionLoaded(cihm, crashPointAddress, curFunc);
 
             // Translate function to REIL function
-            try {
-                curReilFunc = curFunc.getReilCode();
-            } catch (InternalTranslationException translationException) {
-                MessageBox.showException(m_pluginInterface.getMainWindow().getFrame(), null,
-                        "Translation ERROR : TO REIL Graph");
-            }
+            graph = translateFunc2ReilFunc(graph, curReilFunc, crashReilInst, crashInstructionGraphNode, curFunc, crashInst);
 
-            for (ReilBlock block : curReilFunc.getGraph().getNodes()) {
-
-                for (ReilInstruction inst : block.getInstructions()) {
-
-                    if (ReilHelpers.toNativeAddress(inst.getAddress()).equals(crashInst.getAddress())) {
-                        crashReilInst.add(inst);
-                        // LogConsole.log(inst.toString()+"\n");
-                    }
-                }
-            }
-
-            if (curReilFunc != null) {
-                graph = InstructionGraph.create(curReilFunc.getGraph()); // API's
-                                                                         // Structure
-                for (InstructionGraphNode instGraphNode : graph.getNodes()) {
-                    for (ReilInstruction reilInst : crashReilInst) {
-                        if (instGraphNode.getInstruction().getAddress().equals(reilInst.getAddress())) {
-                            crashInstructionGraphNode.add(instGraphNode);
-                            // LogConsole.log(instGraphNode.getInstruction().toString()+"\n");
-                            break;
-                        }
-                    }
-                }
-            }
-
-            /*********** MLocAnalysis_RTable+Env ********************/
+            /*********** MLocAnalysis_RTable+Env ********************
             if (memoryAnalysisCheck) {
                 mLocResult = memoryAnalysis(graph, curFunc, mLocResult);
             }
             /*******************************************************/
 
+            
+            
+            
+            /*********** MLocAnalysis_RTable+Env ********************/
+            
             InterBBAnalysis interBBAnalysis = new InterBBAnalysis(module, curFunc);
 
             if (interBBAnalysis.needAnalysis()) {
                 System.out.println("it need to Analysis!!");
             }
-
+            /*******************************************************/
+            
+            
+            
             System.out.println("== start EEEEEEEEEEEEEEE ==\n");
             RDAnalysis rda = new RDAnalysis(graph, crashPointAddress);
-            RDResult = rda.runRDAnalysis();
+            
+            RDResult = rda.runRDAnalysis(interProcedureAnalysisMode);
 
             LogConsole.log("== end rd analysis ==\n");
 
@@ -195,7 +154,7 @@ public class AnalysisStartThread implements IProgressThread {
             du.defUseChaining();
 
             if (crashSrcAnalysis) {
-                crashInstructionGraphNode.add(CrashSourceAdder.getInstruction(graph, crashPointAddress));
+                crashInstructionGraphNode.add(CrashSourceAdder.getInstruction(graph, crashPointAddress, interProcedureAnalysisMode));
             }
             for (InstructionGraphNode instGraphNode : crashInstructionGraphNode) {
                 du.createDefUseGraph(instGraphNode);
@@ -255,6 +214,72 @@ public class AnalysisStartThread implements IProgressThread {
         printExploitablePathCount();
         System.out.println("call Count : " + callCounter);
 
+    }
+
+    private ILatticeGraph<InstructionGraphNode> translateFunc2ReilFunc(ILatticeGraph<InstructionGraphNode> graph,
+            ReilFunction curReilFunc, List<ReilInstruction> crashReilInst,
+            List<InstructionGraphNode> crashInstructionGraphNode, Function curFunc, Instruction crashInst) {
+        try {
+            curReilFunc = curFunc.getReilCode();
+        } catch (InternalTranslationException translationException) {
+            MessageBox.showException(m_pluginInterface.getMainWindow().getFrame(), null,
+                    "Translation ERROR : TO REIL Graph");
+        }
+
+        for (ReilBlock block : curReilFunc.getGraph().getNodes()) {
+
+            for (ReilInstruction inst : block.getInstructions()) {
+
+                if (ReilHelpers.toNativeAddress(inst.getAddress()).equals(crashInst.getAddress())) {
+                    crashReilInst.add(inst);
+                    // LogConsole.log(inst.toString()+"\n");
+                }
+            }
+        }
+
+        if (curReilFunc != null) {
+            graph = InstructionGraph.create(curReilFunc.getGraph()); // API's
+                                                                     // Structure
+            for (InstructionGraphNode instGraphNode : graph.getNodes()) {
+                for (ReilInstruction reilInst : crashReilInst) {
+                    if (instGraphNode.getInstruction().getAddress().equals(reilInst.getAddress())) {
+                        crashInstructionGraphNode.add(instGraphNode);
+                        // LogConsole.log(instGraphNode.getInstruction().toString()+"\n");
+                        break;
+                    }
+                }
+            }
+        }
+        return graph;
+    }
+
+    private Instruction checkFunctionLoaded(CountInstructionHashMap cihm, Long crashPointAddress, Function curFunc) {
+        try {
+            if (!curFunc.isLoaded()) {
+                curFunc.load();
+            }
+        } catch (CouldntLoadDataException e1) {
+            e1.printStackTrace();
+            // continue;
+        } catch (Exception e1) {
+            System.out.println("dubugging" + "/");
+            // continue;
+        }
+
+        Instruction crashInst = ReilInstructionResolve.findNativeInstruction(curFunc, crashPointAddress);
+
+        if (curFunc == null) {
+            System.out.println("function null!!!!");
+        }
+        if (crashInst == null) {
+            System.out.println("instruction null!!!!");
+        } else {
+            LogConsole.log(crashInst.toString() + "\n");
+            StringTokenizer st = new StringTokenizer(crashInst.toString(), " ");
+            st.nextToken();
+            cihm.put(st.nextToken(), 1);
+        }
+        return crashInst;
     }
 
     private void countExploitableCrash() {

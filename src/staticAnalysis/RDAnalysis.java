@@ -1,8 +1,10 @@
 package staticAnalysis;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import com.google.security.zynamics.binnavi.API.gui.LogConsole;
@@ -20,6 +22,7 @@ import crashfilter.va.MLocAnalysis.env.EnvLatticeElement;
 import crashfilter.va.memlocations.MLocException;
 import data.ReilInstructionResolve;
 import helper.CrashSourceAdder;
+import helper.InterProcedureMode;
 
 public class RDAnalysis {
     private ILatticeGraph<InstructionGraphNode> graph;
@@ -160,23 +163,33 @@ public class RDAnalysis {
         return startVector;
     }
 
-    public IStateVector<InstructionGraphNode, RDLatticeElement> runRDAnalysis() throws MLocException {
+    public IStateVector<InstructionGraphNode, RDLatticeElement> runRDAnalysis(InterProcedureMode analysisMode) throws MLocException {
 
         IStateVector<InstructionGraphNode, RDLatticeElement> startVector;
         IStateVector<InstructionGraphNode, RDLatticeElement> endVector = new DefaultStateVector<InstructionGraphNode, RDLatticeElement>();
 
         startVector = initializeState(graph);
 
-        endVector = runRD(startVector);
+        
+        InstructionGraphNode crashSrcNode = CrashSourceAdder.getInstruction(graph, crashAddr, analysisMode);
+        long toBeInsertedAddress = CrashSourceAdder.getNextReilAddrOfCrash(graph, crashAddr);
+
+        
+        
+        Set< Map<InstructionGraphNode,Long>  > toBeAddedSrcNAddresses = new HashSet<>();
+
+        toBeAddedSrcNAddresses = CrashSourceAdder.getSrcNAddress(graph, crashAddr, analysisMode);
+ 
+        
+        
+        endVector = runRD(startVector, crashSrcNode, toBeInsertedAddress);
         return endVector;
     }
 
     private IStateVector<InstructionGraphNode, RDLatticeElement> runRD(
-            IStateVector<InstructionGraphNode, RDLatticeElement> startVector) {
+            IStateVector<InstructionGraphNode, RDLatticeElement> startVector, InstructionGraphNode crashSrcNode, long toBeInsertedAddress) {
 
-        InstructionGraphNode crashSrcNode = CrashSourceAdder.getInstruction(graph, crashAddr);
-        long toBeInsertedAddress = CrashSourceAdder.getNextAddrOfCrash(graph, crashAddr);
-
+        
         boolean changed = true;
         List<InstructionGraphNode> nodes = graph.getNodes();
         IStateVector<InstructionGraphNode, RDLatticeElement> vector = startVector;

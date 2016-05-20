@@ -149,19 +149,6 @@ public class ReturnValueAnalysis implements TaintSink {
         return true;
     }
 
-    private boolean isDefUsedInAddressToBranch(InstructionGraphNode use, InstructionGraphNode def) {
-        if (hasRegisterThirdOperation(use)) {
-            for (ReilOperand op : ReilInstructionResolve.resolveReilInstructionDest(def)) {
-                if (use.getInstruction().getThirdOperand().getValue().equals(op.getValue())) {
-                    return true;
-                }
-            }
-            return false;
-        } else
-            return false;
-
-    }
-
     private boolean isTaintedReturnValue(DefUseChain.DefUseNode node) {
 
         ReilInstruction inst = node.getInst().getInstruction();
@@ -178,7 +165,6 @@ public class ReturnValueAnalysis implements TaintSink {
     }
 
     private boolean isDefRetrunVauleWithTaint(InstructionGraphNode def) {
-        // TODO
         return (def.getInstruction().getThirdOperand().getValue().equals("eax")
                 || def.getInstruction().getThirdOperand().getValue().equals("r0"));
     }

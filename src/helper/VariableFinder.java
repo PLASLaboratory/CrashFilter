@@ -55,7 +55,7 @@ public class VariableFinder {
 
     private void initGlobalVariables() {
         GlobalVariablesManager gvm = module.getGlobalVariablesManager();
-        gvm.getVariables();
+
 
         globalVariables = gvm.getVariables();
         
@@ -101,10 +101,14 @@ public class VariableFinder {
     }
 
     private String stringOfLocalVariable(String operand) {
-        String localVariable = operand.substring(4, operand.length() - 1);
+        String localVariable = operand.substring(3, operand.length() - 1);
 
         while (!(localVariable.startsWith("var_") || localVariable.startsWith("loc_"))) {
             localVariable = localVariable.substring(1, localVariable.length());
+            if(localVariable.length() ==0) 
+            {
+                break;
+            }
         }
 
         if (localVariable.length() == 0) {
