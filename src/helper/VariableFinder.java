@@ -17,16 +17,21 @@ import com.google.security.zynamics.binnavi.API.gui.LogConsole;
 
 public class VariableFinder {
 
-    private  Module module;
-    private  Function function;
+    private Module module;
+    private Function function;
 
     private List<GlobalVariable> globalVariables = new ArrayList<GlobalVariable>();
 
     private Set<String> usedGlobalVariables = new HashSet<String>();
     private Set<String> usedLocalVariables = new HashSet<String>();
     private Set<String> usedArguments = new HashSet<String>();
+    
     private Set<String> usedOperands = new HashSet<String>();
 
+    
+    private Set<Instruction> usedArgumentInstructions = new HashSet<Instruction>();
+    private Set<Instruction> usedGlobalVariableInstructions = new HashSet<Instruction>();
+    
     public Set<String> getUsedGlobalVariables() {
         return usedGlobalVariables;
     }
@@ -47,18 +52,78 @@ public class VariableFinder {
 
         usedOperands = findUsedOperands();
 
-        findUsedLocalVariables();
+        usedLocalVariables = findUsedLocalVariables();
         findUsedArguments();
         findUsedGlobalVariables();
-
+        
+        findArgumentInstructions();
+        findGlobalVariableInstructions();
     }
+
+    private HashSet<Instruction> findGlobalVariableInstructions() {
+        //TODO
+        HashSet<Instruction> usedGlobalVariableInstructions = new HashSet<Instruction>();
+
+        FlowGraph flowGraph = function.getGraph();
+        List<BasicBlock> basicBlocks = flowGraph.getNodes();
+        for (BasicBlock bb : basicBlocks) {
+            List<Instruction> instructions = bb.getInstructions();
+            for (Instruction instruction : instructions) {
+                List<Operand> operands = instruction.getOperands();
+                for (Operand operand : operands) {
+                    if (isGlobalVariable(operand)) {
+                        usedGlobalVariableInstructions.add(instruction);
+                    }
+                }
+            }
+        }
+        return usedGlobalVariableInstructions;
+        
+    }
+
+    private boolean isGlobalVariable(Operand operand) {
+        for (GlobalVariable globalVariable : globalVariables) {
+            if (operand.toString().contains(globalVariable.getName())) {
+                return true;
+            }            
+        }
+        return false;
+    }
+    private boolean isArguments(Operand operand) {
+
+        if (operand.toString().contains("arg_")) {
+            return true;
+        }
+        return false;
+    }
+
+    
 
     private void initGlobalVariables() {
         GlobalVariablesManager gvm = module.getGlobalVariablesManager();
 
-
         globalVariables = gvm.getVariables();
-        
+
+    }
+
+    private Set<Instruction> findArgumentInstructions() {
+
+        HashSet<Instruction> usedArgumentInstructions = new HashSet<Instruction>();
+
+        FlowGraph flowGraph = function.getGraph();
+        List<BasicBlock> basicBlocks = flowGraph.getNodes();
+        for (BasicBlock bb : basicBlocks) {
+            List<Instruction> instructions = bb.getInstructions();
+            for (Instruction instruction : instructions) {
+                List<Operand> operands = instruction.getOperands();
+                for (Operand operand : operands) {
+                    if (isArguments(operand)) {
+                        usedArgumentInstructions.add(instruction);
+                    }
+                }
+            }
+        }
+        return usedArgumentInstructions;
     }
 
     private Set<String> findUsedOperands() {
@@ -80,43 +145,47 @@ public class VariableFinder {
     }
 
     private void findUsedGlobalVariables() {
-        //TODO
         for (String operand : usedOperands) {
             for (GlobalVariable globalVariable : globalVariables) {
                 if (operand.contains(globalVariable.getName())) {
-                    System.out.println("finded global variable : " + globalVariable.getName());
+                    //System.out.println("finded global variable : " + globalVariable.getName());
                     usedGlobalVariables.add(operand);
                 }
             }
         }
     }
 
-    private void findUsedLocalVariables() {
+    private Set<String> findUsedLocalVariables() {
+        
+        Set<String> usedLocalVariables = new HashSet<>();
+        
         for (String operand : usedOperands) {
             if (operand.contains("var_") || operand.contains("loc_")) {
                 String variable = stringOfLocalVariable(operand);
+               
                 usedLocalVariables.add(variable);
             }
         }
+        return usedLocalVariables;
     }
 
     private String stringOfLocalVariable(String operand) {
-        String localVariable = operand.substring(3, operand.length() - 1);
+        String localVariable = operand.toString();
 
         while (!(localVariable.startsWith("var_") || localVariable.startsWith("loc_"))) {
             localVariable = localVariable.substring(1, localVariable.length());
-            if(localVariable.length() ==0) 
-            {
+            if (localVariable.length() == 0) {
                 break;
             }
         }
 
         if (localVariable.length() == 0) {
-            LogConsole.log("error : InterBBAnalysis - stringOfLocalVariable() - localVariable's length is 0");
+            System.out.println("error : InterBBAnalysis - stringOfLocalVariable() - localVariable's length is 0\n");
         }
         return localVariable;
 
     }
+
 
     private void findUsedArguments() {
         for (String operand : usedOperands) {
@@ -139,6 +208,14 @@ public class VariableFinder {
             LogConsole.log("error : InterBBAnalysis - stringOfArguments() - argument length is 0");
         }
         return argument;
+    }
+
+    public Set<Instruction> getUsedArgumentInstructions() {
+        return usedArgumentInstructions;
+    }
+
+    public void setUsedArgumentInstructions(Set<Instruction> usedArgumentInstructions) {
+        this.usedArgumentInstructions = usedArgumentInstructions;
     }
 
 }

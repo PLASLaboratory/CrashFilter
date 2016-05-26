@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.Set;
 
 import com.google.security.zynamics.binnavi.API.disassembly.Address;
+import com.google.security.zynamics.binnavi.API.disassembly.Instruction;
 import com.google.security.zynamics.binnavi.API.reil.OperandSize;
 import com.google.security.zynamics.binnavi.API.reil.ReilInstruction;
 import com.google.security.zynamics.binnavi.API.reil.ReilOperand;
@@ -16,6 +17,8 @@ import com.google.security.zynamics.binnavi.API.reil.mono.InstructionGraphNode;
 
 public class CrashSourceAdder {
 
+    
+    
     public static List<InstructionGraphNode> getInstructionlist(ILatticeGraph<InstructionGraphNode> graph,
             Long crashAddr) {
         List<InstructionGraphNode> originalList = graph.getNodes();
@@ -47,70 +50,56 @@ public class CrashSourceAdder {
     }
 
     public static InstructionGraphNode getInstruction(ILatticeGraph<InstructionGraphNode> graph, Long crashAddr,InterProcedureMode interProcedureAnalysisMode) {
-        if (interProcedureAnalysisMode == InterProcedureMode.NORMAL) {
-            return getCrashPointSrcInstruction(graph, crashAddr);
-        }
-        else if(interProcedureAnalysisMode == InterProcedureMode.FUNCTIONAnalysis)
-        {
-            return getArgumentInstruction(graph,crashAddr);
-        }
-        return getCrashPointSrcInstruction(graph, crashAddr);
+        
+        System.out.println("Ddddddddddddddddddddd");
+        
+       switch(interProcedureAnalysisMode)
+       {
+           case NORMAL:
+               return getCrashPointSrcInstruction(graph, crashAddr);
+           case FUNCTIONAnalysis:
+               return getArgumentInstruction(graph,crashAddr);
+           case GVAnalysis:
+               return null;
+           default:
+               return null;
+               
+       }
+        
+
         
     }
 
+
+
     private static InstructionGraphNode getArgumentInstruction(ILatticeGraph<InstructionGraphNode> graph,
             Long crashAddr) {
-        
-        
-        
-        //TODO
-        List<InstructionGraphNode> originalList = graph.getNodes();
-        InstructionGraphNode crashInstruction = null;
-        boolean addFlag = false;
-
-        long preInstAddr = 0x00;
-        ReilOperand toBeAddOperand = null;
-        for (InstructionGraphNode inst : originalList) {
-            long instAddr = inst.getInstruction().getAddress().toLong();
-
-            if (addFlag && instAddr % 0x100 == 0) {
-                Address addr = new Address(preInstAddr + 1);
-                crashInstruction = makeCrashSrcInstruction(addr, toBeAddOperand);
-                addFlag = false;
-                break;
-            }
-
-            if (instAddr % 0x100 == 0 && instAddr / 0x100 == crashAddr) {
-                addFlag = true;
-                toBeAddOperand = inst.getInstruction().getFirstOperand();
-            }
-            preInstAddr = instAddr;
-
-        }
-        return crashInstruction;
+        // TODO Auto-generated method stub
+        return null;
     }
 
     private static InstructionGraphNode getCrashPointSrcInstruction(ILatticeGraph<InstructionGraphNode> graph,
             Long crashAddr) {
+        
         List<InstructionGraphNode> originalList = graph.getNodes();
         InstructionGraphNode crashInstruction = null;
         boolean addFlag = false;
 
         long preInstAddr = 0x00;
-        ReilOperand toBeAddOperand = null;
+        ReilOperand toBeAddedOperand = null;
         for (InstructionGraphNode inst : originalList) {
             long instAddr = inst.getInstruction().getAddress().toLong();
 
             if (addFlag && instAddr % 0x100 == 0) {
                 Address addr = new Address(preInstAddr + 1);
-                crashInstruction = makeCrashSrcInstruction(addr, toBeAddOperand);
+                crashInstruction = makeCrashSrcInstruction(addr, toBeAddedOperand);
                 addFlag = false;
                 break;
             }
 
             if (instAddr % 0x100 == 0 && instAddr / 0x100 == crashAddr) {
                 addFlag = true;
-                toBeAddOperand = inst.getInstruction().getFirstOperand();
+                toBeAddedOperand = inst.getInstruction().getFirstOperand();
             }
             preInstAddr = instAddr;
 
@@ -159,17 +148,14 @@ public class CrashSourceAdder {
         return inst;
     }
 
-    public static Set<Map<InstructionGraphNode, Long> > getSrcNAddress(ILatticeGraph<InstructionGraphNode> graph,
-            Long crashAddr, InterProcedureMode analysisMode) {
-        
-        
-        Set< Map<InstructionGraphNode,Long>  > toBeAddedSrcNAddresses = new HashSet<>();
+    public static  Map<Long, InstructionGraphNode> getSrcNAddress(ILatticeGraph<InstructionGraphNode> graph,
+            Long crashAddr, InterProcedureMode analysisMode,VariableFinder vf) {
         
         switch(analysisMode){
             case NORMAL:
-                return getSrcNAddress_Get(graph, crashAddr, analysisMode, toBeAddedSrcNAddresses);
+                return getSetOfSrcNAddress(graph, crashAddr, analysisMode);
             case FUNCTIONAnalysis:
-                break;
+                return getSetOfArgumentsNAddress(graph,  analysisMode, vf);                
             case GVAnalysis :
                 break;
             default:
@@ -178,15 +164,35 @@ public class CrashSourceAdder {
         System.exit(-1);
         return null;
     }
-    private static Set<Map<InstructionGraphNode, Long>> getSrcNAddress_Get(ILatticeGraph<InstructionGraphNode> graph,
-            Long crashAddr, InterProcedureMode analysisMode,
-            Set<Map<InstructionGraphNode, Long>> toBeAddedSrcNAddresses) {
-        InstructionGraphNode crashSrcNode = CrashSourceAdder.getInstruction(graph, crashAddr, analysisMode);
-        long toBeInsertedAddress = CrashSourceAdder.getNextReilAddrOfCrash(graph, crashAddr);
-        Map<InstructionGraphNode, Long> toBeAddedSrcNAddress = new HashMap<InstructionGraphNode, Long>();
-        toBeAddedSrcNAddress.put(crashSrcNode, toBeInsertedAddress);
-        toBeAddedSrcNAddresses.add(toBeAddedSrcNAddress);
+    
+    private static Map< Long, InstructionGraphNode> getSetOfArgumentsNAddress(
+            ILatticeGraph<InstructionGraphNode> graph, InterProcedureMode analysisMode, VariableFinder vf) {
         
-        return toBeAddedSrcNAddresses;
+        //TODO
+        
+        Set<Instruction> usedArgumentInstructions = vf.getUsedArgumentInstructions();
+        Map<Long, InstructionGraphNode> toBeAddedSrcNAddress = new HashMap<>();
+        
+        for(Instruction inst : usedArgumentInstructions)
+        {
+            Long argumentAddr = inst.getAddress().toLong();
+            InstructionGraphNode crashSrcNode = getInstruction(graph, argumentAddr, analysisMode);
+            long toBeInsertedAddress = getNextReilAddrOfCrash(graph, argumentAddr);
+            
+            toBeAddedSrcNAddress.put(toBeInsertedAddress, crashSrcNode);
+        }
+        
+        return toBeAddedSrcNAddress;
+    }
+
+    private static  Map<Long, InstructionGraphNode> getSetOfSrcNAddress(ILatticeGraph<InstructionGraphNode> graph,
+            Long crashAddr, InterProcedureMode analysisMode) {
+        
+        InstructionGraphNode crashSrcNode = getInstruction(graph, crashAddr, analysisMode);
+        long toBeInsertedAddress = getNextReilAddrOfCrash(graph, crashAddr);
+        Map<Long, InstructionGraphNode> toBeAddedSrcNAddress = new  HashMap<>();
+        toBeAddedSrcNAddress.put(toBeInsertedAddress, crashSrcNode);
+        
+        return toBeAddedSrcNAddress;
     }
 }

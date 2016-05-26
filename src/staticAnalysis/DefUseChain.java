@@ -30,7 +30,7 @@ public class DefUseChain {
     private ILatticeGraph<InstructionGraphNode> graph;
     private List<DefUseGraph> duGraphs = new ArrayList<DefUseGraph>();
     private IStateVector<InstructionGraphNode, MLocLatticeElement> mLocResult;
-    private boolean crashSrcAnalysis = false; // if it is true , ver 1.2
+    private boolean doCrashSrcAnalysis = false; // if it is true , ver 1.2
     private long crashPointAddress = 0;
 
     public void setMemoryResult(IStateVector<InstructionGraphNode, MLocLatticeElement> mLocResult) {
@@ -42,7 +42,7 @@ public class DefUseChain {
         this.RDResult = rDResult;
         this.graph = graph;
         this.crashPointAddress = crashPointAddress;
-        this.crashSrcAnalysis = crashSrcAnalysis;
+        this.doCrashSrcAnalysis = crashSrcAnalysis;
     }
 
     private boolean isDefUsed(InstructionGraphNode def, InstructionGraphNode use) throws MLocException {
@@ -70,6 +70,8 @@ public class DefUseChain {
                             return false;
                     }
                 }
+            default:
+                break;
             }
         case LDM:
             switch (ReilInstructionResolve.getKindInst(def)) {
@@ -102,6 +104,8 @@ public class DefUseChain {
                     }
                 }
                 return false;
+            default:
+                break;
             }
         default:
             switch (ReilInstructionResolve.getKindInst(def)) {
@@ -118,6 +122,8 @@ public class DefUseChain {
                         }
                     }
                 }
+            default:
+                break;
             }
         }
         return false;
@@ -132,7 +138,7 @@ public class DefUseChain {
 
         List<InstructionGraphNode> insts = graph.getNodes();
 
-        if (crashSrcAnalysis) {
+        if (doCrashSrcAnalysis) {
             insts = CrashSourceAdder.getInstructionlist(graph, crashPointAddress);
         }
 
@@ -141,14 +147,15 @@ public class DefUseChain {
 
             for (InstructionGraphNode use : graph.getNodes()) {
 
-                Set<InstructionGraphNode> temp = RDResult.getState(use).getReachableInstList();
-                boolean rdContain = temp.contains(def);
+                Set<InstructionGraphNode> reachableInstList = RDResult.getState(use).getReachableInstList();
+                boolean rdContain = reachableInstList.contains(def);
 
-                for (InstructionGraphNode node : temp) {
+                for (InstructionGraphNode node : reachableInstList) {
                     if (def.getInstruction().getAddress().toLong() == node.getInstruction().getAddress().toLong()) {
                         rdContain = true;
                     }
                 }
+                
                 boolean isDU = isDefUsed(def, use);
 
                 boolean flag = (def != use) && rdContain && isDU;
@@ -232,14 +239,13 @@ public class DefUseChain {
 
         boolean hasDUInst = false;
         for (InstructionGraphNode inst : defUseChains.keySet()) {
-            if (inst.getInstruction().getAddress().toLong() == duNode.getInst().getInstruction().getAddress()
-                    .toLong()) {
+            if (inst.getInstruction().getAddress().toLong() == duNode.getInst().getInstruction().getAddress().toLong()) {
                 duNodes = defUseChains.get(inst);
                 hasDUInst = true;
                 break;
             }
         }
-
+ 
         if (hasDUInst) {
 
             for (InstructionGraphNode use : duNodes) {
@@ -259,7 +265,6 @@ public class DefUseChain {
 
     }
 
-    @SuppressWarnings("unused")
     public class DefUseNode {
         private InstructionGraphNode inst;
         private List<DefUseNode> children = new ArrayList<DefUseNode>();
@@ -374,7 +379,7 @@ public class DefUseChain {
 
     }
 
-    @SuppressWarnings("unused")
+
     public class DefUseGraph {
         private List<DefUseNode> nodes = new ArrayList<DefUseNode>();
         private List<DefUseEdge> edges = new ArrayList<DefUseEdge>();

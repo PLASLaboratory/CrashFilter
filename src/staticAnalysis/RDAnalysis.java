@@ -17,33 +17,25 @@ import com.google.security.zynamics.binnavi.API.reil.mono.IStateVector;
 import com.google.security.zynamics.binnavi.API.reil.mono.InstructionGraphEdge;
 import com.google.security.zynamics.binnavi.API.reil.mono.InstructionGraphNode;
 
-import crashfilter.va.MLocAnalysis.RTable.RTableLatticeElement;
-import crashfilter.va.MLocAnalysis.env.EnvLatticeElement;
 import crashfilter.va.memlocations.MLocException;
 import data.ReilInstructionResolve;
 import helper.CrashSourceAdder;
 import helper.InterProcedureMode;
+import helper.VariableFinder;
 
 public class RDAnalysis {
     private ILatticeGraph<InstructionGraphNode> graph;
-    private IStateVector<InstructionGraphNode, RTableLatticeElement> locResult;
-    private IStateVector<InstructionGraphNode, EnvLatticeElement> envResult;
+    
+    
     private Long crashAddr = null;
-    private boolean monotoneChecker = true;;
+    private VariableFinder vf;;
 
-    public RDAnalysis(ILatticeGraph<InstructionGraphNode> graph, Long crashAddr) {
+    public RDAnalysis(ILatticeGraph<InstructionGraphNode> graph, Long crashAddr, VariableFinder vf) {
         this.graph = graph;
         this.crashAddr = crashAddr;
+        this.vf = vf;
     }
 
-    public void setLocResult(IStateVector<InstructionGraphNode, RTableLatticeElement> LocResult) {
-        this.locResult = LocResult;
-    }
-
-    public void setEnvResult(IStateVector<InstructionGraphNode, EnvLatticeElement> envResult) {
-        this.envResult = envResult;
-
-    }
 
     public class RDLatticeElement implements ILatticeElement<RDLatticeElement> {
 
@@ -176,18 +168,20 @@ public class RDAnalysis {
 
         
         
-        Set< Map<InstructionGraphNode,Long>  > toBeAddedSrcNAddresses = new HashSet<>();
-
-        toBeAddedSrcNAddresses = CrashSourceAdder.getSrcNAddress(graph, crashAddr, analysisMode);
+        Map<Long, InstructionGraphNode> toBeAddedSrcNAddresses = new HashMap<>();
+        toBeAddedSrcNAddresses = CrashSourceAdder.getSrcNAddress(graph, crashAddr, analysisMode, vf);
  
         
         
-        endVector = runRD(startVector, crashSrcNode, toBeInsertedAddress);
+        //TODO
+        //toBeInsertedAddress               ->  toBeInsertedAddresses 
+        // Map<InstructionGraphNode,Long>   ->  Set<  Map<InstructionGraphNode,Long>    >
+        endVector = runRD(startVector, toBeAddedSrcNAddresses);
         return endVector;
     }
 
     private IStateVector<InstructionGraphNode, RDLatticeElement> runRD(
-            IStateVector<InstructionGraphNode, RDLatticeElement> startVector, InstructionGraphNode crashSrcNode, long toBeInsertedAddress) {
+            IStateVector<InstructionGraphNode, RDLatticeElement> startVector,  Map<Long, InstructionGraphNode> toBeAddedSrcNAddresses) {
 
         
         boolean changed = true;
@@ -208,8 +202,11 @@ public class RDAnalysis {
                     RDLatticeElement currentState = applyMeetOperation(vector, node, preds, transformedState);
                     transferomState( node, transformedState, currentState);
                     
-                    if (isInsertAddress(toBeInsertedAddress, node)) {
-                        transformedState.insertReachableInst(crashSrcNode);
+                 
+                        
+                    if (isInsertAddress(toBeAddedSrcNAddresses, node)) {
+                        InstructionGraphNode srcNode = toBeAddedSrcNAddresses.get(node.getInstruction().getAddress().toLong());
+                        transformedState.insertReachableInst(srcNode);
                     }
                     
                     endVector.setState(node, transformedState);
@@ -225,8 +222,8 @@ public class RDAnalysis {
         return endVector;
     }
 
-    private boolean isInsertAddress(long toBeInsertedAddress, InstructionGraphNode node) {
-        return toBeInsertedAddress == node.getInstruction().getAddress().toLong();
+    private boolean isInsertAddress(Map<Long, InstructionGraphNode> toBeAddedSrcNAddresses, InstructionGraphNode node) {
+        return toBeAddedSrcNAddresses.containsKey(node.getInstruction().getAddress().toLong());
     }
 
     private boolean isChanged(IStateVector<InstructionGraphNode, RDLatticeElement> vector,
