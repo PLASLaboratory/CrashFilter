@@ -19,8 +19,7 @@ public class CrashSourceAdder {
 
     
     
-    public static List<InstructionGraphNode> getInstructionlist(ILatticeGraph<InstructionGraphNode> graph,
-            Long crashAddr) {
+    public static List<InstructionGraphNode> getInstructionlist(ILatticeGraph<InstructionGraphNode> graph,    Long crashAddr) {
         List<InstructionGraphNode> originalList = graph.getNodes();
         List<InstructionGraphNode> InstructionGraphNodes = new ArrayList<InstructionGraphNode>();
         InstructionGraphNode crashInstruction = null;

@@ -38,11 +38,11 @@ public class DefUseChain {
     }
 
     public DefUseChain(IStateVector<InstructionGraphNode, RDLatticeElement> rDResult,
-            ILatticeGraph<InstructionGraphNode> graph, Long crashPointAddress, boolean crashSrcAnalysis) {
+            ILatticeGraph<InstructionGraphNode> graph, Long crashPointAddress, boolean doCrashSrcAnalysis) {
         this.RDResult = rDResult;
         this.graph = graph;
         this.crashPointAddress = crashPointAddress;
-        this.doCrashSrcAnalysis = crashSrcAnalysis;
+        this.doCrashSrcAnalysis = doCrashSrcAnalysis;
     }
 
     private boolean isDefUsed(InstructionGraphNode def, InstructionGraphNode use) throws MLocException {
@@ -138,7 +138,9 @@ public class DefUseChain {
 
         List<InstructionGraphNode> insts = graph.getNodes();
 
+        
         if (doCrashSrcAnalysis) {
+            //TODO
             insts = CrashSourceAdder.getInstructionlist(graph, crashPointAddress);
         }
 

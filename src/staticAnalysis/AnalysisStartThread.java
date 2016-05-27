@@ -121,11 +121,10 @@ public class AnalysisStartThread implements IProgressThread {
             graph = translateFunc2ReilFunc(graph, curReilFunc, crashReilInst, crashInstructionGraphNode, curFunc,
                     crashInst);
 
-            /***********
-             * MLocAnalysis_RTable+Env ******************** if
-             * (memoryAnalysisCheck) { mLocResult = memoryAnalysis(graph,
-             * curFunc, mLocResult); } /
-             *******************************************************/
+            /************ MLocAnalysis_RTable+Env ********************
+             if(memoryAnalysisCheck) {
+                 mLocResult = memoryAnalysis(graph, curFunc, mLocResult); 
+             } 
 
             /*********** is needed to InterBBANalysis ********************/
 
@@ -151,17 +150,21 @@ public class AnalysisStartThread implements IProgressThread {
             du.setMemoryResult(mLocResult);
             du.defUseChaining();
 
+            
             if (crashSrcAnalysis) {
                 // TODO
                 // multiple add
-                crashInstructionGraphNode
-                        .add(CrashSourceAdder.getInstruction(graph, crashPointAddress, interProcedureAnalysisMode));
+                crashInstructionGraphNode.add(CrashSourceAdder.getInstruction(graph, crashPointAddress, interProcedureAnalysisMode));
             }
-
+            
+            //TODO
+            // taint src must be in crashInstructionGraphNode.. 
             for (InstructionGraphNode instGraphNode : crashInstructionGraphNode) {
                 du.createDefUseGraph(instGraphNode);
             }
 
+            
+            
             LogConsole.log("== end DU analysis ==\n");
 
             TaintSink ea = new ExploitableAnalysis(du.getDuGraphs(), curFunc, crashPointAddress, crashFilteringResult);

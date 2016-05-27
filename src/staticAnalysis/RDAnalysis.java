@@ -163,19 +163,10 @@ public class RDAnalysis {
         startVector = initializeState(graph);
 
         
-        InstructionGraphNode crashSrcNode = CrashSourceAdder.getInstruction(graph, crashAddr, analysisMode);
-        long toBeInsertedAddress = CrashSourceAdder.getNextReilAddrOfCrash(graph, crashAddr);
-
-        
-        
         Map<Long, InstructionGraphNode> toBeAddedSrcNAddresses = new HashMap<>();
         toBeAddedSrcNAddresses = CrashSourceAdder.getSrcNAddress(graph, crashAddr, analysisMode, vf);
  
-        
-        
-        //TODO
-        //toBeInsertedAddress               ->  toBeInsertedAddresses 
-        // Map<InstructionGraphNode,Long>   ->  Set<  Map<InstructionGraphNode,Long>    >
+   
         endVector = runRD(startVector, toBeAddedSrcNAddresses);
         return endVector;
     }
