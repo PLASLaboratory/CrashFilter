@@ -56,8 +56,8 @@ public class VariableFinder {
         findUsedArguments();
         findUsedGlobalVariables();
         
-        findArgumentInstructions();
-        findGlobalVariableInstructions();
+        usedArgumentInstructions = findArgumentInstructions();
+        usedGlobalVariableInstructions = findGlobalVariableInstructions();
     }
 
     private HashSet<Instruction> findGlobalVariableInstructions() {

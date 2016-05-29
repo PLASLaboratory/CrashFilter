@@ -17,6 +17,7 @@ import com.google.security.zynamics.binnavi.API.reil.ReilFunction;
 import com.google.security.zynamics.binnavi.API.reil.ReilHelpers;
 import com.google.security.zynamics.binnavi.API.reil.ReilInstruction;
 import com.google.security.zynamics.binnavi.API.reil.ReilOperand;
+import com.google.security.zynamics.binnavi.API.reil.mono.ILatticeGraph;
 import com.google.security.zynamics.binnavi.API.reil.mono.IStateVector;
 import com.google.security.zynamics.binnavi.API.reil.mono.InstructionGraph;
 import com.google.security.zynamics.binnavi.API.reil.mono.InstructionGraphNode;
@@ -106,6 +107,7 @@ public class ReturnValueAnalysis implements TaintSink {
 
         InstructionGraphNode lastInstruction = getLastInstruction(func);
         RDLatticeElement rdLatticeElement = RDResult.getState(lastInstruction);
+        
         return isReachableToLastInstruction(inst, rdLatticeElement);
     }
 
@@ -115,7 +117,7 @@ public class ReturnValueAnalysis implements TaintSink {
 
     private InstructionGraphNode getLastInstruction(Function func) {
 
-        InstructionGraph graph = transformGraph(func);
+        ILatticeGraph<InstructionGraphNode> graph = transformGraph(func);
 
         InstructionGraphNode lastInst = null;
         for (InstructionGraphNode inst : graph.getNodes()) {
@@ -126,7 +128,7 @@ public class ReturnValueAnalysis implements TaintSink {
 
     }
 
-    private InstructionGraph transformGraph(Function func) {
+    private ILatticeGraph<InstructionGraphNode> transformGraph(Function func) {
         ReilFunction curReilFunc = null;
         try {
             curReilFunc = func.getReilCode();
@@ -134,7 +136,7 @@ public class ReturnValueAnalysis implements TaintSink {
             e.printStackTrace();
         }
 
-        InstructionGraph graph = InstructionGraph.create(curReilFunc.getGraph());
+        ILatticeGraph<InstructionGraphNode> graph = InstructionGraph.create(curReilFunc.getGraph());
         return graph;
     }
 

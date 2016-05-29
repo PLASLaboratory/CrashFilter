@@ -85,7 +85,6 @@ public class AnalysisStartThread implements IProgressThread {
 
     @Override
     public void run() throws MLocException {
-        // TODO Auto-generated method stub
         ILatticeGraph<InstructionGraphNode> graph = null;
         IStateVector<InstructionGraphNode, RDLatticeElement> RDResult = null;
         IStateVector<InstructionGraphNode, MLocLatticeElement> mLocResult = null;
@@ -110,7 +109,7 @@ public class AnalysisStartThread implements IProgressThread {
 
             ReilFunction curReilFunc = null;
             List<ReilInstruction> crashReilInst = new ArrayList<ReilInstruction>();
-            List<InstructionGraphNode> crashInstructionGraphNode = new ArrayList<InstructionGraphNode>();
+            List<InstructionGraphNode> taintSourceInstructionGraphNodes = new ArrayList<InstructionGraphNode>();
             Function curFunc = ModuleHelpers.getFunction(module,
                     crashPointToFuncAddr.get(crashPointAddress).getFuncAddr());
             // Function curFunc = ModuleHelpers.getFunction(module, 33760);
@@ -118,7 +117,7 @@ public class AnalysisStartThread implements IProgressThread {
             Instruction crashInst = checkFunctionLoaded(cihm, crashPointAddress, curFunc);
 
             // Translate function to REIL function
-            graph = translateFunc2ReilFunc(graph, curReilFunc, crashReilInst, crashInstructionGraphNode, curFunc,
+            graph = translateFunc2ReilFunc(graph, curReilFunc, crashReilInst, taintSourceInstructionGraphNodes, curFunc,
                     crashInst);
 
             /************ MLocAnalysis_RTable+Env ********************
@@ -141,9 +140,11 @@ public class AnalysisStartThread implements IProgressThread {
             RDAnalysis rda = new RDAnalysis(graph, crashPointAddress, vf);
 
             RDResult = rda.runRDAnalysis(interProcedureAnalysisMode);
-
+            rda.printRD(RDResult);
             LogConsole.log("== end rd analysis ==\n");
 
+            
+            
             LogConsole.log("==start du analysis  1==\n");
             DefUseChain du = new DefUseChain(RDResult, graph, crashPointAddress, crashSrcAnalysis);
 
@@ -151,29 +152,51 @@ public class AnalysisStartThread implements IProgressThread {
             du.defUseChaining();
 
             
+            
+            
             if (crashSrcAnalysis) {
                 // TODO
                 // multiple add
-                crashInstructionGraphNode.add(CrashSourceAdder.getInstruction(graph, crashPointAddress, interProcedureAnalysisMode));
+                taintSourceInstructionGraphNodes.addAll(CrashSourceAdder.getInstructions(graph, crashPointAddress, InterProcedureMode.FUNCTIONAnalysis, vf));
             }
             
             //TODO
-            // taint src must be in crashInstructionGraphNode.. 
-            for (InstructionGraphNode instGraphNode : crashInstructionGraphNode) {
-                du.createDefUseGraph(instGraphNode);
+            // taint src must be in crashInstructionGraphNode.. SSSS
+            for (InstructionGraphNode taintSourceInstructionGraphNode : taintSourceInstructionGraphNodes) {
+                du.createDefUseGraph(taintSourceInstructionGraphNode);
             }
 
             
             
             LogConsole.log("== end DU analysis ==\n");
+            
+            
+            
 
             TaintSink ea = new ExploitableAnalysis(du.getDuGraphs(), curFunc, crashPointAddress, crashFilteringResult);
-
-            if (ea.isTaintSink()) {
-
-                makeView(crashPointToFuncAddr, viewIndex, crashPointAddress, curFunc, ea);
-
+            TaintSink returnValueAnalysis = new ReturnValueAnalysis(du.getDuGraphs(), curFunc, crashPointAddress, crashFilteringResult, RDResult);
+            
+            //TODO
+            interProcedureAnalysisMode = InterProcedureMode.FUNCTIONAnalysis;
+            switch(interProcedureAnalysisMode)
+            {
+                case NORMAL:
+                    if (ea.isTaintSink()) {
+                        makeView(crashPointToFuncAddr, viewIndex, crashPointAddress, curFunc, ea);
+                    }
+                    break;
+                case FUNCTIONAnalysis:
+                    if (returnValueAnalysis.isTaintSink()) {
+                        makeView(crashPointToFuncAddr, viewIndex, crashPointAddress, curFunc, returnValueAnalysis);
+                    }
+                    break;
+                case GVAnalysis:
+                    break;
+                default:
+                    break;
+                    
             }
+            
 
             e_path_cnt += ea.getTotal_e_count();
             pe_path_cnt += ea.getTotal_pe_count();
