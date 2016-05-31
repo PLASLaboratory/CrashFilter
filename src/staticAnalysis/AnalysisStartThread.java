@@ -140,7 +140,7 @@ public class AnalysisStartThread implements IProgressThread {
             RDAnalysis rda = new RDAnalysis(graph, crashPointAddress, vf);
 
             RDResult = rda.runRDAnalysis(interProcedureAnalysisMode);
-            rda.printRD(RDResult);
+            //rda.printRD(RDResult);
             LogConsole.log("== end rd analysis ==\n");
 
             
@@ -174,7 +174,7 @@ public class AnalysisStartThread implements IProgressThread {
             
 
             TaintSink ea = new ExploitableAnalysis(du.getDuGraphs(), curFunc, crashPointAddress, crashFilteringResult);
-            TaintSink returnValueAnalysis = new ReturnValueAnalysis(du.getDuGraphs(), curFunc, crashPointAddress, crashFilteringResult, RDResult);
+            TaintSink returnValueAnalysis = new ReturnValueAnalysis(du.getDuGraphs(), curFunc,  crashFilteringResult, RDResult , graph);
             
             //TODO
             interProcedureAnalysisMode = InterProcedureMode.FUNCTIONAnalysis;
