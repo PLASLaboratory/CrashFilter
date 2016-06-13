@@ -192,7 +192,7 @@ public class VariableFinder {
             if (operand.contains("arg_")) {
                 String argument = getStringOfArguments(operand);
                 usedArguments.add(argument);
-                System.out.println("argument : " + argument);
+                
             }
         }
     }

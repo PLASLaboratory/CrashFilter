@@ -4,17 +4,18 @@ package helper.plugin;
 import java.awt.BorderLayout;
 import java.awt.Checkbox;
 import java.awt.Dimension;
+import java.awt.Font;
+import java.awt.Label;
+import java.awt.Panel;
 import java.awt.TextField;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.File;
 
-import javax.swing.ButtonGroup;
 import javax.swing.JDialog;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JPanel;
-import javax.swing.JRadioButton;
 import javax.swing.JTextArea;
 
 import com.google.security.zynamics.binnavi.API.disassembly.Module;
@@ -64,20 +65,41 @@ public class BinDialog extends JDialog {
 		filePanel.add(filePathField);
 		filePanel.add(new CPanelTwoButtons(new FListener(this), "ADD", "START"),BorderLayout.EAST);
 		
-		singleCrashAddrTextfield.setText("not use");										//HyeonGu 15.4.21
+		singleCrashAddrTextfield.setText("Single Crash");										//HyeonGu 15.4.21
 		filePanel.add(singleCrashAddrTextfield,BorderLayout.AFTER_LAST_LINE);		//HyeonGu 15.4.21
 		filePanel.add(singleCrashCheck, BorderLayout.WEST);
 		
 		
 		
 		checkerPanel.add(memoryAnalysisCheck, BorderLayout.NORTH);
-		checkerPanel.add(crashSrcAnalysisCheck, BorderLayout.SOUTH);
+		checkerPanel.add(crashSrcAnalysisCheck, BorderLayout.CENTER);
 		
+		
+		Panel madeByPanal = new Panel();
+		Label madeBytLabel = new Label("                      CNU_PLAS");
+		Font font = new Font("πŸ≈¡√º", Font.PLAIN, 10); 
+		madeBytLabel.setFont(font);
+		madeByPanal.add(madeBytLabel);
+		
+		
+		Panel nameOfProgramPanel = new Panel();
+		Label nameOfProgramtLabel = new Label("CrashFilter");
+		Font f = new Font("πŸ≈¡√º", Font.PLAIN, 18); 
+		nameOfProgramtLabel.setFont(f);
+		nameOfProgramPanel.add(nameOfProgramtLabel);
+		
+		nameOfProgramPanel.add(madeByPanal , BorderLayout.EAST);
+        checkerPanel.add(nameOfProgramPanel, BorderLayout.SOUTH);
+
+        
+        
+        
+        
 		add(filePanel, BorderLayout.NORTH);
 		add(topPanel, BorderLayout.CENTER);
 		add(checkerPanel, BorderLayout.SOUTH);
 		
-		setPreferredSize(new Dimension(800, 200));
+		setPreferredSize(new Dimension(800, 250));
 		pack();
 		
 		
@@ -133,8 +155,7 @@ public class BinDialog extends JDialog {
 				}
 
 				jd.dispose();
-				AnalysisStartThread analysisStartThread = new AnalysisStartThread(
-						BinDialog.this.p, BinDialog.this.f, BinDialog.this.m ,BinDialog.this.crashAddr, optionalCode);
+				AnalysisStartThread analysisStartThread = new AnalysisStartThread(BinDialog.this.p, BinDialog.this.f, BinDialog.this.m ,BinDialog.this.crashAddr, optionalCode);
 				ProgressDialog.show(null, "Analysis...", analysisStartThread);
 				//System.runFinalization();
 				return;

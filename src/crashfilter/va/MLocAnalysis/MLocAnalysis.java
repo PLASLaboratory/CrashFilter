@@ -163,7 +163,7 @@ public class MLocAnalysis {
 			CallStackCleaner callStackCleaner = CallStackCleaner.getCallStackCleaner();
 			if(callStackCleaner.isToBeClearedStack(node))
 			{
-				System.out.println("call stack cleaning...");
+				//System.out.println("call stack cleaning...");
 				callStackCleaner.clearCallStack_Ebp(transformed_RTable, transformed_Env);
 			}
 			

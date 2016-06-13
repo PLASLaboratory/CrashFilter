@@ -48,13 +48,13 @@ public class CallStackCleaner {
 			{
 				toBeClearedInstList.add(nativeInst);
 				callStackFlag = false;
-				System.out.println("          ->"+nativeInst);
+				//System.out.println("          ->"+nativeInst);
 			}
 
 			if(nativeInst.getMnemonic().equals("call"))
 			{
 				callStackFlag = true;
-				System.out.println("      "+nativeInst);
+				//System.out.println("      "+nativeInst);
 			}
 		}
 		

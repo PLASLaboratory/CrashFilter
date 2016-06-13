@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.Stack;
 
@@ -24,6 +25,7 @@ import com.google.security.zynamics.binnavi.API.reil.mono.InstructionGraph;
 import com.google.security.zynamics.binnavi.API.reil.mono.InstructionGraphNode;
 
 import data.ReilInstructionResolve;
+import staticAnalysis.DefUseChain.DefUseNode;
 import staticAnalysis.RDAnalysis.RDLatticeElement;
 
 public class ReturnValueAnalysis implements TaintSink {
@@ -59,6 +61,7 @@ public class ReturnValueAnalysis implements TaintSink {
     }
 
     public void projectReilExploitToArmExploit() {
+        
         for (DefUseChain.DefUseNode duNode : taintedReilPaths.keySet()) {
 
             Instruction exploitPoint = toArmInstruction(duNode);
@@ -75,7 +78,10 @@ public class ReturnValueAnalysis implements TaintSink {
             // Filtering the duplicated Path
             // It is because we analyze every each REIL instruction that is
             // translated from one ARM instuction
-            if (taintedArmPaths.isEmpty()) {
+            
+            taintedArmPaths.put(exploitPoint, armPath);
+            
+      /*      if (taintedArmPaths.isEmpty()) {
                 taintedArmPaths.put(exploitPoint, armPath);
             } else {
                 boolean isContain = false;
@@ -85,10 +91,11 @@ public class ReturnValueAnalysis implements TaintSink {
                         isContain = true;
                     }
                 }
+               
                 if (!isContain) {
                     taintedArmPaths.put(exploitPoint, armPath);
                 }
-            }
+            }*/
         }
     }
 
@@ -113,6 +120,7 @@ public class ReturnValueAnalysis implements TaintSink {
             System.out.println("RDLatticeElement is null");
             System.exit(-1);
         }
+        
         return isReachableToLastInstruction(inst, rdLatticeElement);
     }
 
@@ -150,26 +158,32 @@ public class ReturnValueAnalysis implements TaintSink {
     private boolean isTaintedReturnValue(DefUseChain.DefUseNode node) {
 
         ReilInstruction inst = node.getInst().getInstruction();
-
-        if (isBinaryOperation(inst)) {
-            return false;
-        } else {
+        
+        //if (isDefInstruction(inst)) {        
+        
             if (isReachableAtReturn(node.getInst())) {
-                return isDefRetrunVauleWithTaint(node.getInst());
+               
+                return true;
             }
-        }
+        //}
         return false;
 
     }
 
-    private boolean isDefRetrunVauleWithTaint(InstructionGraphNode def) {
-        return (def.getInstruction().getThirdOperand().getValue().equals("eax")
-                || def.getInstruction().getThirdOperand().getValue().equals("r0"));
+    private boolean isDefInstruction(ReilInstruction inst) {
+        if(inst.getMnemonic().equals("str"))
+            return true;
+        if( isBinaryOperation(inst) )
+            return true;
+        
+        return false;
     }
 
-    private boolean hasRegisterThirdOperation(InstructionGraphNode use) {
-        return ReilHelpers.isRegister(use.getInstruction().getThirdOperand());
+    private boolean isDefRetrunVauleWithTaint(ReilInstruction def) {
+        return (def.getThirdOperand().getValue().equals("eax")
+                || def.getThirdOperand().getValue().equals("r0"));
     }
+
 
     private boolean isBinaryOperation(ReilInstruction inst) {
         return inst.getMnemonic().equals("add") || inst.getMnemonic().equals("sub") || inst.getMnemonic().equals("mul")
@@ -185,10 +199,7 @@ public class ReturnValueAnalysis implements TaintSink {
             Stack<DefUseChain.DefUseNode> stackDFS = new Stack<DefUseChain.DefUseNode>();
             Set<DefUseChain.DefUseNode> visitedNodes = new HashSet<DefUseChain.DefUseNode>();
 
-            // We find all possible exploitable instruction in this function
-            // We consider the possibility in detail after this process
-            // Depth First Search Algorithm
-
+       
             System.out.println("search : " + duGraph.getNodes().get(0));
             searchTaintRetrunValueDFS(stackDFS, visitedNodes, duGraph.getNodes().get(0));
         }
@@ -207,6 +218,9 @@ public class ReturnValueAnalysis implements TaintSink {
             List<DefUseChain.DefUseNode> exploitPath = new ArrayList<DefUseChain.DefUseNode>();
             exploitPath.addAll(stackDFS);
             taintedReilPaths.put(duNode, exploitPath);
+            
+            
+            //printTaintedReilPaths();
         }
 
         // children iteration
@@ -222,7 +236,23 @@ public class ReturnValueAnalysis implements TaintSink {
             }
         }
     }
-
+    private void printTaintedReilPaths()
+    {
+         Set<DefUseNode> keySet = taintedReilPaths.keySet();
+        
+        for(DefUseNode key : keySet)
+        {
+            System.out.println("src : "+ key);
+            
+            if(taintedReilPaths.get(key) == null) continue;
+            
+            for(DefUseNode inst : taintedReilPaths.get(key))
+            {
+                System.out.println("\t"+ inst);
+            }
+            
+        }
+    }
     @Override
     public int getTotal_e_count() {
         return 0;

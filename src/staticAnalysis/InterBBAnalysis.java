@@ -15,8 +15,15 @@ public class InterBBAnalysis {
     }
 
     public boolean needAnalysis() {
-        // TODO Auto-generated method stub
-        return false;
+        boolean needGlobalVariableAnalysis = !globalVariableAnalysis.dontUseGlobalVariable();
+        
+        
+        if(needGlobalVariableAnalysis)
+        {
+            System.out.println("need global Variable Analysis");
+        }
+        //TODO
+        return (needGlobalVariableAnalysis );
     }
 
     

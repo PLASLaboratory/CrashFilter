@@ -119,7 +119,7 @@ public final class CrashFilterPlugin implements IModuleMenuPlugin {
 		Module module;
 
 		public AnalysisStart(final Module module) {
-			super("CrashFilter2");
+			super("CrashFilter");
 			this.module = module;
 			setEnabled(module.isLoaded());
 			module.addListener(m_updater);
