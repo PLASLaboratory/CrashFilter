@@ -12,5 +12,4 @@ public interface TaintSink {
     
     int getTotal_e_count();
     int getTotal_pe_count();
-    
 }

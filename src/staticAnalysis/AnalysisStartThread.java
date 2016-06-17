@@ -15,7 +15,8 @@ public class AnalysisStartThread implements IProgressThread {
     
     public AnalysisStartThread(PluginInterface m_plugin, File crachFolder, Module module, String crashAddr, int optionCode) {        
         super();        
-        AnalysisRunner analysisRunner = new AnalysisRunner( m_plugin,  crachFolder,  module,  crashAddr,  optionCode);
+        analysisRunner = new AnalysisRunner( m_plugin,  crachFolder,  module,  crashAddr,  optionCode, 0);
+        
     }
 
     @Override

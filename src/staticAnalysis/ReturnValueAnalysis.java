@@ -25,6 +25,7 @@ import com.google.security.zynamics.binnavi.API.reil.mono.InstructionGraph;
 import com.google.security.zynamics.binnavi.API.reil.mono.InstructionGraphNode;
 
 import data.ReilInstructionResolve;
+import helper.Dangerousness;
 import staticAnalysis.DefUseChain.DefUseNode;
 import staticAnalysis.RDAnalysis.RDLatticeElement;
 
@@ -38,7 +39,7 @@ public class ReturnValueAnalysis implements TaintSink {
     private IStateVector<InstructionGraphNode, RDLatticeElement> RDResult;
     private ILatticeGraph<InstructionGraphNode> graph;
 
-    public ReturnValueAnalysis(List<DefUseChain.DefUseGraph> duGraphs, Function func, Map<String, String> crashFilteringResult, IStateVector<InstructionGraphNode, RDLatticeElement> RDResult, ILatticeGraph<InstructionGraphNode> graph) {
+    public ReturnValueAnalysis(List<DefUseChain.DefUseGraph> duGraphs, Function func, Map<String, Dangerousness> crashFilteringResult, IStateVector<InstructionGraphNode, RDLatticeElement> RDResult, ILatticeGraph<InstructionGraphNode> graph) {
         this.duGraphs = duGraphs;
         this.func = func;
         this.RDResult = RDResult;

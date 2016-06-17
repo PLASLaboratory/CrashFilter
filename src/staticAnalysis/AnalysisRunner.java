@@ -10,10 +10,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.StringTokenizer;
 
-import com.google.security.zynamics.binnavi.API.disassembly.Address;
 import com.google.security.zynamics.binnavi.API.disassembly.CouldntLoadDataException;
 import com.google.security.zynamics.binnavi.API.disassembly.CouldntSaveDataException;
 import com.google.security.zynamics.binnavi.API.disassembly.Function;
+import com.google.security.zynamics.binnavi.API.disassembly.FunctionEdge;
 import com.google.security.zynamics.binnavi.API.disassembly.Instruction;
 import com.google.security.zynamics.binnavi.API.disassembly.Module;
 import com.google.security.zynamics.binnavi.API.disassembly.ModuleHelpers;
@@ -42,6 +42,7 @@ import data.ReilInstructionResolve;
 import helper.CallStackCleaner;
 import helper.CrashFileScanner;
 import helper.CrashSourceAdder;
+import helper.Dangerousness;
 import helper.HeapChecker;
 import helper.InterProcedureMode;
 import helper.VariableFinder;
@@ -52,13 +53,15 @@ public class AnalysisRunner {
     final private File crashFolder;
     final private PluginInterface m_pluginInterface;
     final private Module module;
-    private Map<String, String> crashFilteringResult = new HashMap<>();
+    private Map<String, Dangerousness> crashFilteringResult = new HashMap<>();
 
     private String crashAddr = "";
     boolean singleCrashCheck = false;
     boolean memoryAnalysisCheck = false;
     boolean crashSrcAnalysis = false;
 
+    
+    
     private int e_path_cnt = 0;
     private int pe_path_cnt = 0;
     private int callCounter = 0;
@@ -67,11 +70,14 @@ public class AnalysisRunner {
     private int ne_cnt;
     private int totalTime = 0;
     private int optionCode;
+    private int interProcedureDepth;
     
-    public AnalysisRunner(PluginInterface m_plugin, File crachFolder, Module module, String crashAddr, int optionCode) {
-        
+    
+    
+    public AnalysisRunner(PluginInterface m_plugin, File crachFolder, Module module, String crashAddr, int optionCode, int interProcedureDepth) {        
         this.module = module;
         this.optionCode = optionCode;
+        this.interProcedureDepth = interProcedureDepth+1;
         System.out.println(module.getFilebase());
         this.m_pluginInterface = m_plugin;
         this.crashFolder = crachFolder;
@@ -93,118 +99,8 @@ public class AnalysisRunner {
 
         for (Long crashPointAddress : crashPointToFuncAddr.keySet()) {
 
-            ILatticeGraph<InstructionGraphNode> graph = null;
-            IStateVector<InstructionGraphNode, RDLatticeElement> RDResult = null;
-            IStateVector<InstructionGraphNode, MLocLatticeElement> mLocResult = null;
-
-            LogConsole.log("Parsing File Number : " + crashPointToFuncAddr.size() + "\n\n");
-
-            List<String> tobeInterprocedureAnalysis = new ArrayList<>();
-            int viewIndex = 0;
-
-            crashAddr = Long.toHexString(crashPointAddress);
-
-            LogConsole.log("now analyzing : " + Long.toHexString(crashPointAddress) + "\n");
-            long before = System.currentTimeMillis();
-
-            ReilFunction curReilFunc = null;
-            List<ReilInstruction> crashReilInst = new ArrayList<ReilInstruction>();
-            List<InstructionGraphNode> taintSourceInstructionGraphNodes = new ArrayList<InstructionGraphNode>();
-            Function curFunc = ModuleHelpers.getFunction(module,
-                    crashPointToFuncAddr.get(crashPointAddress).getFuncAddr());
-            // Function curFunc = ModuleHelpers.getFunction(module, 33760);
-
-            Instruction crashInst = checkFunctionLoaded(cihm, crashPointAddress, curFunc);
-
-            // Translate function to REIL function
-            graph = translateFunc2ReilFunc(graph, curReilFunc, crashReilInst, taintSourceInstructionGraphNodes, curFunc,
-                    crashInst);
-
-            /************* MLocAnalysis_RTable+Env ********************/
-            if (memoryAnalysisCheck) {
-                mLocResult = memoryAnalysis(graph, curFunc, mLocResult);
-            }
-
-            /*********** is needed to InterBBANalysis ********************/
-
-            InterBBAnalysis interBBAnalysis = new InterBBAnalysis(module, curFunc);
-
-            /*
-             * if (!interBBAnalysis.needAnalysis()) { System.out.println(
-             * "NNNNNNNNNNNNNNNNNNNNNO : "+Long.toHexString(crashPointAddress)+
-             * "   : "+ ++numOf); }
-             * 
-             * 
-             */
-
-            System.out.println("== start EEEEEEEEEEEEEEE ==\n");
-            VariableFinder vf = new VariableFinder(module, curFunc);
-            RDAnalysis rda = new RDAnalysis(graph, crashPointAddress, vf);
-
-            RDResult = rda.runRDAnalysis(interProcedureAnalysisMode);
-            // rda.printRD(RDResult);
-            LogConsole.log("== end rd analysis ==\n");
-
-            LogConsole.log("==start du analysis  1==\n");
-            DefUseChain du = new DefUseChain(RDResult, graph, crashPointAddress, crashSrcAnalysis);
-
-            du.setMemoryResult(mLocResult);
-            du.defUseChaining();
-
-            if (crashSrcAnalysis) {
-                // TODO
-                // multiple add
-                if (interProcedureAnalysisMode != InterProcedureMode.NORMAL) {
-                    taintSourceInstructionGraphNodes.clear();
-                }
-                taintSourceInstructionGraphNodes.addAll(
-                        CrashSourceAdder.getInstructions(graph, crashPointAddress, interProcedureAnalysisMode, vf));
-            }
-            for (InstructionGraphNode taintSourceInstructionGraphNode : taintSourceInstructionGraphNodes) {
-                du.createDefUseGraph(taintSourceInstructionGraphNode);
-            }
-
-            LogConsole.log("== end DU analysis ==\n");
-            TaintSink ea = new ExploitableAnalysis(du.getDuGraphs(), curFunc, crashPointAddress, crashFilteringResult);
-            TaintSink returnValueAnalysis = new ReturnValueAnalysis(du.getDuGraphs(), curFunc, crashFilteringResult,
-                    RDResult, graph);
-   
-            switch (interProcedureAnalysisMode) {
-            case NORMAL:
-                if (ea.isTaintSink()) {
-                    makeView(crashPointToFuncAddr, viewIndex, crashPointAddress, curFunc, ea);
-                }
-                break;
-            case FUNCTIONAnalysis:
-                if (returnValueAnalysis.isTaintSink()) {
-                    makeView(crashPointToFuncAddr, viewIndex, crashPointAddress, curFunc, returnValueAnalysis);
-                }
-                break;
-            case GVAnalysis:
-                break;
-            default:
-                break;
-
-            }
-
-            e_path_cnt += ea.getTotal_e_count();
-            pe_path_cnt += ea.getTotal_pe_count();
-
-            LogConsole.log("==========end Exploitable analysis ===========\n");
-            long after = System.currentTimeMillis();
-            long processingTime = after - before;
-
-            LogConsole.log(curFunc.getName() + "-- time : " + processingTime + "\n\n");
-            totalTime += processingTime;
-            viewIndex++;
-
-            if (hasFunctionCalls(graph, curFunc)) {
-                tobeInterprocedureAnalysis.add(crashAddr);
-            }
+            runSingleCrash(interProcedureAnalysisMode, crashPointToFuncAddr, cihm, crashPointAddress);
         }
-        AnalysisStartThread analysisStartThread = new AnalysisStartThread(m_pluginInterface, crashFolder, module ,crashAddr, optionCode);
-        
-        
         
         LogConsole.log(cihm.toString());
 
@@ -213,7 +109,213 @@ public class AnalysisRunner {
         printExploitablePathCount();
         // System.out.println("call Count : " + callCounter);
         LogConsole.log("total time : " + totalTime + "\n");
+    }
+
+    private Dangerousness runSingleCrash(InterProcedureMode interProcedureAnalysisMode,
+            Map<Long, CrashPoint> crashPointToFuncAddr, CountInstructionHashMap cihm, Long crashPointAddress)
+                    throws MLocException {
+        
+        Dangerousness dagnerousness = Dangerousness.PE ;
+        ILatticeGraph<InstructionGraphNode> graph = null;
+        IStateVector<InstructionGraphNode, RDLatticeElement> RDResult = null;
+        IStateVector<InstructionGraphNode, MLocLatticeElement> mLocResult = null;
+
+        LogConsole.log("Parsing File Number : " + crashPointToFuncAddr.size() + "\n\n");
+
+        List<String> tobeInterprocedureAnalysis = new ArrayList<>();
+        int viewIndex = 0;
+
+        crashAddr = Long.toHexString(crashPointAddress);
+
+        LogConsole.log("now analyzing : " + Long.toHexString(crashPointAddress) + "\n");
+        long before = System.currentTimeMillis();
+
+        ReilFunction curReilFunc = null;
+        List<ReilInstruction> crashReilInst = new ArrayList<ReilInstruction>();
+        List<InstructionGraphNode> taintSourceInstructionGraphNodes = new ArrayList<InstructionGraphNode>();
+        Function curFunc = ModuleHelpers.getFunction(module,
+                crashPointToFuncAddr.get(crashPointAddress).getFuncAddr());
+
+        Instruction crashInst = checkFunctionLoaded(cihm, crashPointAddress, curFunc);
+        graph = translateFunc2ReilFunc(graph, curReilFunc, crashReilInst, taintSourceInstructionGraphNodes, curFunc,
+                crashInst);
+
+        
+        
+        /************* MLocAnalysis_RTable+Env ********************/
+        if (memoryAnalysisCheck) {
+            mLocResult = memoryAnalysis(graph, curFunc, mLocResult);
+        }
+
+   
+        
+
+        System.out.println("== start EEEEEEEEEEEEEEE ==\n");
+        VariableFinder vf = new VariableFinder(module, curFunc);        
+        RDAnalysis rda = new RDAnalysis(graph, crashPointAddress, vf);
+
+        RDResult = rda.runRDAnalysis(interProcedureAnalysisMode);
+        // rda.printRD(RDResult);
+        LogConsole.log("== end rd analysis ==\n");
+        
+        
+        
+
+        LogConsole.log("==start du analysis  1==\n");
+        DefUseChain du = new DefUseChain(RDResult, graph, crashPointAddress, crashSrcAnalysis);
+
+        du.setMemoryResult(mLocResult);
+        du.defUseChaining();
+
+        
+        //crashSrcAnalysis
+        if (crashSrcAnalysis) {
+            if (interProcedureAnalysisMode != InterProcedureMode.NORMAL) {
+                taintSourceInstructionGraphNodes.clear();
+            }
+            taintSourceInstructionGraphNodes.addAll(
+                    CrashSourceAdder.getInstructions(graph, crashPointAddress, interProcedureAnalysisMode, vf));
+        }
+        for (InstructionGraphNode taintSourceInstructionGraphNode : taintSourceInstructionGraphNodes) {
+            du.createDefUseGraph(taintSourceInstructionGraphNode);
+        }
+
+        
+        LogConsole.log("== end DU analysis ==\n");
+        
+        
+        ExploitableAnalysis exploitableAnalysis = new ExploitableAnalysis(du.getDuGraphs(), curFunc, crashPointAddress);
+        ReturnValueAnalysis returnValueAnalysis = new ReturnValueAnalysis(du.getDuGraphs(), curFunc, crashFilteringResult, RDResult, graph);
+   
+        
+        switch (interProcedureAnalysisMode) {
+        case NORMAL:
+            
+            if (exploitableAnalysis.isTaintSink()) {
+                makeView(crashPointToFuncAddr, viewIndex, crashPointAddress, curFunc, exploitableAnalysis);
+            }
+            
+            dagnerousness = interProcedureAnalysis(cihm, graph, curFunc, exploitableAnalysis);
+                        
+            crashFilteringResult.put(crashAddr, dagnerousness );            
+            break;
+        case FUNCTIONAnalysis:
+            //TODO
+            if (returnValueAnalysis.isTaintSink() || exploitableAnalysis.isTaintSink()) {
+                makeView(crashPointToFuncAddr, viewIndex, crashPointAddress, curFunc, returnValueAnalysis);
+            }
+            
+            
+            
+            break;
+        case GVAnalysis:
+            break;
+        default:
+            break;
+        }
+        
+        
+        e_path_cnt += exploitableAnalysis.getTotal_e_count();
+        pe_path_cnt += exploitableAnalysis.getTotal_pe_count();
+
+        LogConsole.log("==========end Exploitable analysis ===========\n");
+        
+        
+        long after = System.currentTimeMillis();
+        long processingTime = after - before;
+
+        LogConsole.log(curFunc.getName() + "-- time : " + processingTime + "\n\n");
+        totalTime += processingTime;
+        viewIndex++;
+        
+        return dagnerousness;
+    }
+
+    private Dangerousness interProcedureAnalysis(CountInstructionHashMap cihm, ILatticeGraph<InstructionGraphNode> graph, Function curFunc, ExploitableAnalysis exploitableAnalysis) throws MLocException {
+        Dangerousness  dagnerousness = exploitableAnalysis.getDangerousness();
+
+        if (!(Dangerousness.NE).equals(dagnerousness) || !hasFunctionCalls(graph, curFunc))            
+        {
+            return dagnerousness;
+        }
+        
+        //TODO
+        List<Long> calleeList = getCallee(graph, curFunc);        
+        Map<Long, CrashPoint> crashPointToFuncAddr = new HashMap<>() ;
+        
+        Dangerousness dangerousness_f;
+        Dangerousness dangerousness_g;
+        Dangerousness dangerousness = Dangerousness.NE;
+        for (Long callee : calleeList) {
+            
+            crashPointToFuncAddr.putAll(CrashFileScanner.parseCrashFiles(null, module, "0x"+Long.toHexString(callee) ,true));
+            dangerousness_f = runSingleCrash(InterProcedureMode.FUNCTIONAnalysis, crashPointToFuncAddr, cihm, callee);
+            dangerousness_g = runSingleCrash(InterProcedureMode.GVAnalysis, crashPointToFuncAddr, cihm, callee);            
+            dangerousness = getMoreDangerousOne(dangerousness_f, dangerousness_g, dangerousness); 
+            
+        }
+        
+        
+        
+        //TODO
+        return null;
+    }
+
+    private Dangerousness getMoreDangerousOne(Dangerousness dagnerousness_f, Dangerousness dagnerousness_g, Dangerousness dangerousness) {
+        Dangerousness danger_result = dagnerousness_f.getDangerous() > dagnerousness_g.getDangerous() ? dagnerousness_f :  dagnerousness_g;
+        danger_result = danger_result.getDangerous() > dangerousness.getDangerous() ? danger_result :  dangerousness;
+        
+        return danger_result;
     }    
+
+    private  List<Long> getCallee(ILatticeGraph<InstructionGraphNode> graph, Function curFunc) {
+        
+        List<Long> callees = new ArrayList<Long>();
+        
+        List<FunctionEdge> edges = module.getCallgraph().getEdges();
+        
+        for(FunctionEdge edge : edges)
+        {
+            if(edge.getSource().getFunction().equals(curFunc))
+            {
+                callees.add(edge.getTarget().getFunction().getAddress().toLong());
+            }
+        }
+        
+        return callees;
+    }
+
+    
+    private String stringOfLocalVariable(Operand operand) {
+        String localVariable = operand.toString();
+
+        while (!(localVariable.startsWith("var_") || localVariable.startsWith("loc_"))) {
+            localVariable = localVariable.substring(1, localVariable.length());
+            if (localVariable.length() == 0) {
+                break;
+            }
+        }
+
+        if (localVariable.length() == 0) {
+            System.out.println("error : InterBBAnalysis - stringOfLocalVariable() - localVariable's length is 0\n");
+        }
+        return localVariable;
+
+    }
+    
+    private String runInterProcedureAnalysis(Function curFunc, long crashPointAddress) {
+
+        InterProcedureAnalysis interProcedureAnalysis = new InterProcedureAnalysis(module, curFunc);
+
+        if (!interProcedureAnalysis.needAnalysis()) {
+            System.out.println("NE : Don't have to InterProcedureAnalysis: " + Long.toHexString(crashPointAddress));
+            return "NE";
+        }
+        else 
+        {
+            return "PE";
+        }
+    }
 
     private void makeView(Map<Long, CrashPoint> crashPointToFuncAddr, int viewIndex, Long crashPointAddress,
             Function curFunc, TaintSink taintSink) {
@@ -373,27 +475,18 @@ public class AnalysisRunner {
     }
 
     private boolean hasFunctionCalls(ILatticeGraph<InstructionGraphNode> graph, Function curFunc) {
-        boolean hasCall = false;
-        for (InstructionGraphNode inst : graph.getNodes()) {
-            Address instAddr = inst.getInstruction().getAddress();
-            long instAddrLong = instAddr.toLong();
-            instAddrLong /= 0x100;
-            Instruction nativeInst = ReilInstructionResolve.findNativeInstruction(curFunc, instAddrLong);
 
-            if (nativeInst.getMnemonic().equals("call")) {
-                hasCall = true;
-                break;
-            } else if (nativeInst.getMnemonic().equals("BL")) {
-                for (Operand oprand : nativeInst.getOperands()) {
-                    if (oprand.toString().contains("sub_")) {
-                        hasCall = true;
-                        break;
-                    }
-                }
+        List<FunctionEdge> edges = module.getCallgraph().getEdges();
+
+        for (FunctionEdge edge : edges) {
+            if (edge.getSource().getFunction().equals(curFunc)) {
+                return true;
             }
         }
-        return hasCall;
-    }
+
+        return false;
+    }    
+    
 
     private IStateVector<InstructionGraphNode, MLocLatticeElement> memoryAnalysis(
             ILatticeGraph<InstructionGraphNode> graph, Function curFunc,
