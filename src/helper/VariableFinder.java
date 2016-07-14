@@ -52,20 +52,36 @@ public class VariableFinder {
 
         usedOperands = findUsedOperands();
 
-        usedLocalVariables = findUsedLocalVariables();
+        System.out.println("VariableFinder0");
+        findUsedLocalVariables();
+        System.out.println("VariableFinder01");
         findUsedArguments();
+        System.out.println("VariableFinder02");
         findUsedGlobalVariables();
+        System.out.println("VariableFinder03");
         
         usedArgumentInstructions = findArgumentInstructions();
+        System.out.println("VariableFinder04");
         usedGlobalVariableInstructions = findGlobalVariableInstructions();
     }
 
     private HashSet<Instruction> findGlobalVariableInstructions() {
-        //TODO
-        HashSet<Instruction> usedGlobalVariableInstructions = new HashSet<Instruction>();
 
-        FlowGraph flowGraph = function.getGraph();
+        HashSet<Instruction> usedGlobalVariableInstructions = new HashSet<Instruction>();
+        FlowGraph flowGraph;
+        try {
+            flowGraph = function.getGraph();
+        }catch(Exception e)
+        {
+            //sometimes, it has no flowGraph.
+            System.out.println("EEE!");
+            return usedGlobalVariableInstructions;
+        }
+        finally {
+            System.out.println("final");
+        }
         List<BasicBlock> basicBlocks = flowGraph.getNodes();
+        
         for (BasicBlock bb : basicBlocks) {
             List<Instruction> instructions = bb.getInstructions();
             for (Instruction instruction : instructions) {
@@ -110,7 +126,25 @@ public class VariableFinder {
 
         HashSet<Instruction> usedArgumentInstructions = new HashSet<Instruction>();
 
-        FlowGraph flowGraph = function.getGraph();
+        FlowGraph flowGraph = null;
+        if (function != null) {
+            
+            //TODO
+            
+            System.out.println("findUsedOperands1-1");
+            try {
+                flowGraph = function.getGraph();
+            }catch(Exception e)
+            {
+                //sometimes, it has no flowGraph.
+                System.out.println("EEE!");
+                return usedArgumentInstructions;
+            }
+            finally {
+                System.out.println("final");
+            }
+
+        }
         List<BasicBlock> basicBlocks = flowGraph.getNodes();
         for (BasicBlock bb : basicBlocks) {
             List<Instruction> instructions = bb.getInstructions();
@@ -130,17 +164,41 @@ public class VariableFinder {
 
         HashSet<String> usedOperands = new HashSet<String>();
 
-        FlowGraph flowGraph = function.getGraph();
-        List<BasicBlock> basicBlocks = flowGraph.getNodes();
+        FlowGraph flowGraph = null;
+        if (function != null) {
+            // TODO
+            try {
+                flowGraph = function.getGraph();
+            } catch (Exception e) {
+                System.out.println("EEE! : "+function.getAddress());
+                System.out.println(e);
+                return usedOperands;
+            } finally {
+            }
+
+        }
+
+        List<BasicBlock> basicBlocks = null;
+        if (flowGraph != null) {
+            basicBlocks = flowGraph.getNodes();
+        }
+
+        if (basicBlocks == null) {
+            return usedOperands;
+        }
+
         for (BasicBlock bb : basicBlocks) {
             List<Instruction> instructions = bb.getInstructions();
+
             for (Instruction instruction : instructions) {
                 List<Operand> operands = instruction.getOperands();
+
                 for (Operand operand : operands) {
                     usedOperands.add(operand.toString());
                 }
             }
         }
+
         return usedOperands;
     }
 
@@ -155,9 +213,7 @@ public class VariableFinder {
         }
     }
 
-    private Set<String> findUsedLocalVariables() {
-        
-        Set<String> usedLocalVariables = new HashSet<>();
+    private void findUsedLocalVariables() {
         
         for (String operand : usedOperands) {
             if (operand.contains("var_") || operand.contains("loc_")) {
@@ -166,7 +222,7 @@ public class VariableFinder {
                 usedLocalVariables.add(variable);
             }
         }
-        return usedLocalVariables;
+        
     }
 
     private String stringOfLocalVariable(String operand) {

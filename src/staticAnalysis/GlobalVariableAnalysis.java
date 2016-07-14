@@ -1,5 +1,7 @@
 package staticAnalysis;
 
+import java.util.Set;
+
 import com.google.security.zynamics.binnavi.API.disassembly.Function;
 import com.google.security.zynamics.binnavi.API.disassembly.Module;
 
@@ -7,14 +9,14 @@ import helper.VariableFinder;
 
 public class GlobalVariableAnalysis {
     private Function currentFunction;
-    private Module module;
     private VariableFinder variableFinder;
-
+    private Set<String> usedGlobalVariables;
+    
     public GlobalVariableAnalysis(Module module, Function function) {
         
         currentFunction = function;
-        variableFinder = new VariableFinder(module, currentFunction);
-        this.module = module;
+        variableFinder = new VariableFinder(module, currentFunction);    
+        usedGlobalVariables = this.variableFinder.getUsedGlobalVariables();
 
     }
     
@@ -22,5 +24,19 @@ public class GlobalVariableAnalysis {
         return variableFinder.getUsedGlobalVariables().size() == 0;
     }
     
+    
+    public boolean hasSameGlobalVaraible(GlobalVariableAnalysis globalVariableAnalysis) {
+        for(String thisVariable : usedGlobalVariables)
+        {
+            for(String anotherVariable : globalVariableAnalysis.usedGlobalVariables)
+            {
+                if(thisVariable.equals(anotherVariable))
+                {
+                    return true;
+                }
+            }
+        }
+        return false;        
+    }
     
 }
