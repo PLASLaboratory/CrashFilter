@@ -53,7 +53,7 @@ public class AnalysisRunner {
     final private File crashFolder;
     final private PluginInterface m_pluginInterface;
     final private Module module;
-    private Map<String, Dangerousness> crashFilteringResult = new HashMap<>();
+    private Map<Long, Dangerousness> crashFilteringResult = new HashMap<>();
 
     private String crashAddr = "";
     boolean singleCrashCheck = false;
@@ -96,7 +96,9 @@ public class AnalysisRunner {
 
         for (Long crashPointAddress : crashPointToFuncAddr.keySet()) {
 
-            runSingleCrash(interProcedureAnalysisMode, crashPointToFuncAddr, cihm, crashPointAddress);
+            Dangerousness dangerousness = runSingleCrash(interProcedureAnalysisMode, crashPointToFuncAddr, cihm, crashPointAddress);
+            crashFilteringResult.put(crashPointAddress, dangerousness);
+            
         }
         
         LogConsole.log(cihm.toString());
@@ -178,10 +180,14 @@ public class AnalysisRunner {
             
             if (exploitableAnalysis.isTaintSink()) {
                 makeView(crashPointToFuncAddr, viewIndex, crashPointAddress, curFunc, exploitableAnalysis);
+                dagnerousness = exploitableAnalysis.getDangerousness();
             }
-            Dangerousness dagnerousness_inter = interProcedureAnalysis(cihm, graph, curFunc, exploitableAnalysis);   
-            dagnerousness = getMoreDangerousOne(dagnerousness, dagnerousness_inter);            
-            crashFilteringResult.put(crashAddr, dagnerousness );
+            
+            if(dagnerousness != Dangerousness.E)
+            {
+                Dangerousness dagnerousness_inter = interProcedureAnalysis(cihm, graph, curFunc, exploitableAnalysis);   
+                dagnerousness = getMoreDangerousOne(dagnerousness, dagnerousness_inter);
+            }            
             break;
         case FUNCTIONAnalysis:
             //TODO
@@ -413,15 +419,15 @@ public class AnalysisRunner {
         try {
             output = new FileOutputStream("d:/FilteredCrash.txt");
 
-            for (String str : crashFilteringResult.keySet()) {
-                String outputStr = "0x" + str + "  :  " + crashFilteringResult.get(str) + "\r\n";
+            for (Long addr : crashFilteringResult.keySet()) {
+                String outputStr = "0x" + addr + "  :  " + crashFilteringResult.get(addr) + "\r\n";
                 System.out.print(outputStr);
                 output.write(outputStr.getBytes());
-                if (crashFilteringResult.get(str).equals("E"))
+                if (crashFilteringResult.get(addr).equals(Dangerousness.E))
                     e_cnt++;
-                if (crashFilteringResult.get(str).equals("PE"))
+                if (crashFilteringResult.get(addr).equals(Dangerousness.PE))
                     pe_cnt++;
-                if (crashFilteringResult.get(str).equals("NE"))
+                if (crashFilteringResult.get(addr).equals(Dangerousness.NE))
                     ne_cnt++;
 
             }

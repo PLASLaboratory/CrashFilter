@@ -39,7 +39,7 @@ public class ReturnValueAnalysis implements TaintSink {
     private IStateVector<InstructionGraphNode, RDLatticeElement> RDResult;
     private ILatticeGraph<InstructionGraphNode> graph;
 
-    public ReturnValueAnalysis(List<DefUseChain.DefUseGraph> duGraphs, Function func, Map<String, Dangerousness> crashFilteringResult, IStateVector<InstructionGraphNode, RDLatticeElement> RDResult, ILatticeGraph<InstructionGraphNode> graph) {
+    public ReturnValueAnalysis(List<DefUseChain.DefUseGraph> duGraphs, Function func, Map<Long, Dangerousness> crashFilteringResult, IStateVector<InstructionGraphNode, RDLatticeElement> RDResult, ILatticeGraph<InstructionGraphNode> graph) {
         this.duGraphs = duGraphs;
         this.func = func;
         this.RDResult = RDResult;
