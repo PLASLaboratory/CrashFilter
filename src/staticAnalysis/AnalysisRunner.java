@@ -68,13 +68,11 @@ public class AnalysisRunner {
     private int pe_cnt;
     private int ne_cnt;
     private int totalTime = 0;
-    private int interProcedureDepth;
     
     
     
     public AnalysisRunner(PluginInterface m_plugin, File crachFolder, Module module, String crashAddr, int optionCode, int interProcedureDepth) {        
         this.module = module;
-        this.interProcedureDepth = interProcedureDepth+1;
         System.out.println(module.getFilebase());
         this.m_pluginInterface = m_plugin;
         this.crashFolder = crachFolder;
@@ -126,6 +124,7 @@ public class AnalysisRunner {
         crashAddr = Long.toHexString(crashPointAddress);
 
         LogConsole.log("now analyzing : " + Long.toHexString(crashPointAddress) + "\n");
+        System.out.println("now analyzing : " + Long.toHexString(crashPointAddress) );
         long before = System.currentTimeMillis();
 
         ReilFunction curReilFunc = null;
@@ -246,6 +245,7 @@ public class AnalysisRunner {
         Map<Long, CrashPoint> crashPointToFuncAddr = new HashMap<>() ;
         
         
+        
         Dangerousness dangerousness_g = Dangerousness.NE ;
         dangerousness_g  = glovalVariableAnalysis(curFunc, calleeFunction, crashPointToFuncAddr);
         if(dangerousness_g == Dangerousness.PE)
@@ -281,7 +281,6 @@ public class AnalysisRunner {
             for(Function calleeFunction : calleeFunctions )
             {
                 
-                //TODO
                 //Function curFunc = ModuleHelpers.getFunction(module,  crashPointToFuncAddr.get(crashPointAddress).getFuncAddr());
                 GlobalVariableAnalysis globalVariableAnalysis_callee = new GlobalVariableAnalysis(module, calleeFunction);
                 if(!globalVariableAnalysis_callee.dontUseGlobalVariable() && globalVariableAnalysis.hasSameGlobalVaraible(globalVariableAnalysis_callee))

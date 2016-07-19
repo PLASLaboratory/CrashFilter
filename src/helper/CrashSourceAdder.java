@@ -91,8 +91,6 @@ public class CrashSourceAdder {
     private static List<InstructionGraphNode> getArgumentInstruction(ILatticeGraph<InstructionGraphNode> graph,  VariableFinder vf) {
         
         Set<Instruction> usedArgumentInstructions = vf.getUsedArgumentInstructions();
-        System.out.println("here we are");
-        System.out.println(usedArgumentInstructions);
         
         List<InstructionGraphNode> insts = new ArrayList<>();
         
