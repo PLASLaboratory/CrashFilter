@@ -58,7 +58,8 @@ public class AnalysisRunner {
     private String crashAddr = "";
     boolean singleCrashCheck = false;
     boolean memoryAnalysisCheck = false;
-    boolean crashSrcAnalysis = false;
+    boolean crashSrcAnalysisCheck = false;
+    boolean interProcedureAnalysisCheck= false;
 
     
     
@@ -81,10 +82,16 @@ public class AnalysisRunner {
     }
 
     private void decodeOptionCode(int code) {
-        singleCrashCheck = (code & 1) == 1;
-        memoryAnalysisCheck = (code & 10) == 10;
-        crashSrcAnalysis = (code & 100) == 100;
+        singleCrashCheck = ( (code & 1) == 0x1);
+        memoryAnalysisCheck = ( (code & 10) == 0x10);
+        crashSrcAnalysisCheck = ( (code & 100) == 0x100);
+        interProcedureAnalysisCheck =( (code & 1000) == 0x1000 );
 
+        System.out.println("singleCrashCheck  :" + singleCrashCheck );
+        System.out.println("memoryAnalysisCheck  :" +  memoryAnalysisCheck);
+        System.out.println("crashSrcAnalysisCheck  :" +  crashSrcAnalysisCheck);
+        System.out.println("interProcedureAnalysisCheck  :" + interProcedureAnalysisCheck );
+        
     }
     void runAnalysis(InterProcedureMode interProcedureAnalysisMode) throws MLocException {
 
@@ -124,7 +131,7 @@ public class AnalysisRunner {
         crashAddr = Long.toHexString(crashPointAddress);
 
         LogConsole.log("now analyzing : " + Long.toHexString(crashPointAddress) + "\n");
-        System.out.println("now analyzing : " + Long.toHexString(crashPointAddress) );
+        System.out.println("\n now analyzing : " + Long.toHexString(crashPointAddress) );
         long before = System.currentTimeMillis();
 
         ReilFunction curReilFunc = null;
@@ -149,7 +156,7 @@ public class AnalysisRunner {
    
         
 
-        System.out.println("== start EEEEEEEEEEEEEEE ==\n");
+        System.out.println("== start EEEEEEEEEEEEEEE ==");
         VariableFinder vf = new VariableFinder(module, curFunc);        
         RDAnalysis rda = new RDAnalysis(graph, crashPointAddress, vf);
 
@@ -161,7 +168,7 @@ public class AnalysisRunner {
         
 
         LogConsole.log("==start du analysis  1==\n");
-        DefUseChain du = new DefUseChain(RDResult, graph, crashPointAddress, crashSrcAnalysis);
+        DefUseChain du = new DefUseChain(RDResult, graph, crashPointAddress, crashSrcAnalysisCheck);
 
         du.setMemoryResult(mLocResult);
         du.defUseChaining();
@@ -182,12 +189,16 @@ public class AnalysisRunner {
                 dagnerousness = exploitableAnalysis.getDangerousness();
             }
             
-            if(dagnerousness != Dangerousness.E)
+            
+            
+            if(needToInterProcedureAnalysis(dagnerousness))
             {
                 Dangerousness dagnerousness_inter = interProcedureAnalysis(cihm, graph, curFunc, exploitableAnalysis);   
                 dagnerousness = getMoreDangerousOne(dagnerousness, dagnerousness_inter);
             }            
             break;
+            
+            
         case FUNCTIONAnalysis:
             //TODO
             if (returnValueAnalysis.isTaintSink() || exploitableAnalysis.isTaintSink()) {
@@ -217,11 +228,15 @@ public class AnalysisRunner {
         return dagnerousness;
     }
 
+    private boolean needToInterProcedureAnalysis(Dangerousness dagnerousness) {
+        return dagnerousness != Dangerousness.E && interProcedureAnalysisCheck;
+    }
+
     private void crashSrcAnalysis(InterProcedureMode interProcedureAnalysisMode, Long crashPointAddress,
             ILatticeGraph<InstructionGraphNode> graph, List<InstructionGraphNode> taintSourceInstructionGraphNodes,
             VariableFinder vf, DefUseChain du) {
         //crashSrcAnalysis
-        if (crashSrcAnalysis) {
+        if (crashSrcAnalysisCheck) {
             if (interProcedureAnalysisMode != InterProcedureMode.NORMAL) {
                 taintSourceInstructionGraphNodes.clear();
             }
@@ -416,7 +431,8 @@ public class AnalysisRunner {
 
         FileOutputStream output;
         try {
-            output = new FileOutputStream("d:/FilteredCrash.txt");
+            String moduleName = module.getName();
+            output = new FileOutputStream("d:/"+moduleName+".txt");
 
             for (Long addr : crashFilteringResult.keySet()) {
                 String outputStr = "0x" + addr + "  :  " + crashFilteringResult.get(addr) + "\r\n";
@@ -430,6 +446,12 @@ public class AnalysisRunner {
                     ne_cnt++;
 
             }
+            
+            String totalCount = "E : "+ e_cnt + "\n";
+            totalCount += "PE : "+ pe_cnt + "\n";
+            totalCount += "NE : "+ ne_cnt + "\n";
+            output.write(totalCount.getBytes());
+            
             output.close();
 
         } catch (FileNotFoundException e) {

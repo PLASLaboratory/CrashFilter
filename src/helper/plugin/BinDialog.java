@@ -4,6 +4,7 @@ package helper.plugin;
 import java.awt.BorderLayout;
 import java.awt.Checkbox;
 import java.awt.Dimension;
+import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.Label;
 import java.awt.Panel;
@@ -12,6 +13,7 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.File;
 
+import javax.swing.BoxLayout;
 import javax.swing.JDialog;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
@@ -39,9 +41,7 @@ public class BinDialog extends JDialog {
 	private Checkbox memoryAnalysisCheck = new Checkbox("memoryAnalysis",true);			
 	private Checkbox crashSrcAnalysisCheck = new Checkbox("crashSrcAnalysis",true);	
 	private Checkbox singleCrashCheck = new Checkbox("singleCrash", true); 	
-	private Checkbox CrashCheck = new Checkbox("singleCrash", true); 	
-	private Checkbox vsaCheck = new Checkbox("VSA", true); 	
-	
+	private Checkbox interProcedureAnalysisCheck = new Checkbox("interProcedure", true);
 	
 	int optionalCode = 0;
 	// Add, Start Listener
@@ -70,9 +70,10 @@ public class BinDialog extends JDialog {
 		filePanel.add(singleCrashCheck, BorderLayout.WEST);
 		
 		
-		
-		checkerPanel.add(memoryAnalysisCheck, BorderLayout.NORTH);
-		checkerPanel.add(crashSrcAnalysisCheck, BorderLayout.CENTER);
+		checkerPanel.setLayout(new BoxLayout(checkerPanel, BoxLayout.Y_AXIS));
+		checkerPanel.add(memoryAnalysisCheck);
+		checkerPanel.add(crashSrcAnalysisCheck);
+		checkerPanel.add(interProcedureAnalysisCheck);
 		
 		
 		Panel madeByPanal = new Panel();
@@ -89,7 +90,7 @@ public class BinDialog extends JDialog {
 		nameOfProgramPanel.add(nameOfProgramtLabel);
 		
 		nameOfProgramPanel.add(madeByPanal , BorderLayout.EAST);
-        checkerPanel.add(nameOfProgramPanel, BorderLayout.SOUTH);
+        checkerPanel.add(nameOfProgramPanel);
 
         
         
@@ -111,9 +112,10 @@ public class BinDialog extends JDialog {
 	{
 		int code = 0;
 		
-		if(singleCrashCheck.getState()) code |= 1;
-		if(memoryAnalysisCheck.getState()) code |= 10;
-		if(crashSrcAnalysisCheck.getState()) code |= 100;		
+		if(singleCrashCheck.getState()) code |= 0x1;
+		if(memoryAnalysisCheck.getState()) code |= 0x10;
+		if(crashSrcAnalysisCheck.getState()) code |= 0x100;
+		if(interProcedureAnalysisCheck.getState()) code |= 0x1000;
 		
 		return code;
 	}

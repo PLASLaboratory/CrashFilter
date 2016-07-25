@@ -199,9 +199,6 @@ public class ReturnValueAnalysis implements TaintSink {
         for (DefUseChain.DefUseGraph duGraph : duGraphs) {
             Stack<DefUseChain.DefUseNode> stackDFS = new Stack<DefUseChain.DefUseNode>();
             Set<DefUseChain.DefUseNode> visitedNodes = new HashSet<DefUseChain.DefUseNode>();
-
-       
-            System.out.println("search : " + duGraph.getNodes().get(0));
             searchTaintRetrunValueDFS(stackDFS, visitedNodes, duGraph.getNodes().get(0));
         }
 

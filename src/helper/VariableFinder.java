@@ -52,16 +52,10 @@ public class VariableFinder {
 
         usedOperands = findUsedOperands();
 
-        System.out.println("VariableFinder0");
         findUsedLocalVariables();
-        System.out.println("VariableFinder01");
         findUsedArguments();
-        System.out.println("VariableFinder02");
-        findUsedGlobalVariables();
-        System.out.println("VariableFinder03");
-        
+        findUsedGlobalVariables();        
         usedArgumentInstructions = findArgumentInstructions();
-        System.out.println("VariableFinder04");
         usedGlobalVariableInstructions = findGlobalVariableInstructions();
     }
 
@@ -71,14 +65,14 @@ public class VariableFinder {
         FlowGraph flowGraph;
         try {
             flowGraph = function.getGraph();
+            String funcAddr = function.getAddress().toHexString();
+            System.out.println("0x"+funcAddr);
         }catch(Exception e)
         {
-            //sometimes, it has no flowGraph.
-            System.out.println("EEE!");
+            System.out.println("findGlobalVariableInstructions!");
             return usedGlobalVariableInstructions;
         }
         finally {
-            System.out.println("final");
         }
         List<BasicBlock> basicBlocks = flowGraph.getNodes();
         
@@ -131,17 +125,13 @@ public class VariableFinder {
             
             //TODO
             
-            System.out.println("findUsedOperands1-1");
             try {
                 flowGraph = function.getGraph();
             }catch(Exception e)
             {
-                //sometimes, it has no flowGraph.
-                System.out.println("EEE!");
                 return usedArgumentInstructions;
             }
             finally {
-                System.out.println("final");
             }
 
         }
@@ -168,9 +158,10 @@ public class VariableFinder {
         if (function != null) {
             // TODO
             try {
+                if(!function.isLoaded())    function.load();
                 flowGraph = function.getGraph();
             } catch (Exception e) {
-                System.out.println("EEE! : "+function.getAddress());
+                System.out.println("findUsedOperands() ! : "+function.getAddress());
                 System.out.println(e);
                 return usedOperands;
             } finally {
