@@ -99,9 +99,11 @@ public class AnalysisRunner {
 
     private double getAnalysisVersion() {
         
+        
+        
         if(crashSrcAnalysisCheck) return 1.2;
-        if(memoryAnalysisCheck) return 1.3;
-        if(interProcedureAnalysisCheck) return 1.4;
+        if(crashSrcAnalysisCheck && memoryAnalysisCheck) return 1.3;
+        if(crashSrcAnalysisCheck && memoryAnalysisCheck && interProcedureAnalysisCheck) return 1.4;
         
         return 1.0;
         
