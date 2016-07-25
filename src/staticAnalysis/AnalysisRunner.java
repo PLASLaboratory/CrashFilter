@@ -56,11 +56,12 @@ public class AnalysisRunner {
     private Map<Long, Dangerousness> crashFilteringResult = new HashMap<>();
 
     private String crashAddr = "";
-    boolean singleCrashCheck = false;
-    boolean memoryAnalysisCheck = false;
-    boolean crashSrcAnalysisCheck = false;
-    boolean interProcedureAnalysisCheck= false;
-
+    private boolean singleCrashCheck = false;
+    private boolean memoryAnalysisCheck = false;
+    private boolean crashSrcAnalysisCheck = false;
+    private boolean interProcedureAnalysisCheck= false;
+    
+    private double analysisVersion = 0;
     
     
     private int e_path_cnt = 0;
@@ -82,15 +83,27 @@ public class AnalysisRunner {
     }
 
     private void decodeOptionCode(int code) {
-        singleCrashCheck = ( (code & 1) == 0x1);
-        memoryAnalysisCheck = ( (code & 10) == 0x10);
-        crashSrcAnalysisCheck = ( (code & 100) == 0x100);
-        interProcedureAnalysisCheck =( (code & 1000) == 0x1000 );
+        singleCrashCheck = ( (code & 0x1) == 0x1);
+        memoryAnalysisCheck = ( (code & 0x10) == 0x10);
+        crashSrcAnalysisCheck = ( (code & 0x100) == 0x100);
+        interProcedureAnalysisCheck =( (code & 0x1000) == 0x1000 );
 
         System.out.println("singleCrashCheck  :" + singleCrashCheck );
-        System.out.println("memoryAnalysisCheck  :" +  memoryAnalysisCheck);
         System.out.println("crashSrcAnalysisCheck  :" +  crashSrcAnalysisCheck);
+        System.out.println("memoryAnalysisCheck  :" +  memoryAnalysisCheck);
         System.out.println("interProcedureAnalysisCheck  :" + interProcedureAnalysisCheck );
+        
+        analysisVersion = getAnalysisVersion();
+        
+    }
+
+    private double getAnalysisVersion() {
+        
+        if(crashSrcAnalysisCheck) return 1.2;
+        if(memoryAnalysisCheck) return 1.3;
+        if(interProcedureAnalysisCheck) return 1.4;
+        
+        return 1.0;
         
     }
     void runAnalysis(InterProcedureMode interProcedureAnalysisMode) throws MLocException {
@@ -229,6 +242,7 @@ public class AnalysisRunner {
     }
 
     private boolean needToInterProcedureAnalysis(Dangerousness dagnerousness) {
+        
         return dagnerousness != Dangerousness.E && interProcedureAnalysisCheck;
     }
 
@@ -432,7 +446,7 @@ public class AnalysisRunner {
         FileOutputStream output;
         try {
             String moduleName = module.getName();
-            output = new FileOutputStream("d:/"+moduleName+".txt");
+            output = new FileOutputStream("d:/"+moduleName+ " " +analysisVersion+ ".txt");
 
             for (Long addr : crashFilteringResult.keySet()) {
                 String outputStr = "0x" + addr + "  :  " + crashFilteringResult.get(addr) + "\r\n";
@@ -447,9 +461,9 @@ public class AnalysisRunner {
 
             }
             
-            String totalCount = "E : "+ e_cnt + "\n";
-            totalCount += "PE : "+ pe_cnt + "\n";
-            totalCount += "NE : "+ ne_cnt + "\n";
+            String totalCount = "E : "+ e_cnt + "\r\n";
+            totalCount += "PE : "+ pe_cnt + "\r\n";
+            totalCount += "NE : "+ ne_cnt + "\r\n";
             output.write(totalCount.getBytes());
             
             output.close();

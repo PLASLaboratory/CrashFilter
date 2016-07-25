@@ -71,8 +71,9 @@ public class BinDialog extends JDialog {
 		
 		
 		checkerPanel.setLayout(new BoxLayout(checkerPanel, BoxLayout.Y_AXIS));
-		checkerPanel.add(memoryAnalysisCheck);
+		
 		checkerPanel.add(crashSrcAnalysisCheck);
+		checkerPanel.add(memoryAnalysisCheck);		
 		checkerPanel.add(interProcedureAnalysisCheck);
 		
 		
