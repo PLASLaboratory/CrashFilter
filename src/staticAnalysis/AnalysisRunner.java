@@ -100,10 +100,9 @@ public class AnalysisRunner {
     private double getAnalysisVersion() {
         
         
-        
-        if(crashSrcAnalysisCheck) return 1.2;
-        if(crashSrcAnalysisCheck && memoryAnalysisCheck) return 1.3;
         if(crashSrcAnalysisCheck && memoryAnalysisCheck && interProcedureAnalysisCheck) return 1.4;
+        if(crashSrcAnalysisCheck && memoryAnalysisCheck) return 1.3;
+        if(crashSrcAnalysisCheck) return 1.2;
         
         return 1.0;
         
@@ -448,7 +447,7 @@ public class AnalysisRunner {
         FileOutputStream output;
         try {
             String moduleName = module.getName();
-            output = new FileOutputStream("d:/"+moduleName+ " " +analysisVersion+ ".txt");
+            output = new FileOutputStream("d:/"+moduleName+ "_" +analysisVersion+ ".txt");
 
             for (Long addr : crashFilteringResult.keySet()) {
                 String outputStr = "0x" + addr + "  :  " + crashFilteringResult.get(addr) + "\r\n";
@@ -463,10 +462,15 @@ public class AnalysisRunner {
 
             }
             
-            String totalCount = "E : "+ e_cnt + "\r\n";
-            totalCount += "PE : "+ pe_cnt + "\r\n";
-            totalCount += "NE : "+ ne_cnt + "\r\n";
-            output.write(totalCount.getBytes());
+            String outputString = "\r\n" + "E : "+ e_cnt + "\r\n";
+            outputString += "PE : "+ pe_cnt + "\r\n";
+            outputString += "NE : "+ ne_cnt + "\r\n";
+            
+            outputString = concatPathCountString(outputString);
+            
+            outputString += "total time : "+ totalTime + "\r\n";
+            
+            output.write(outputString.getBytes());
             
             output.close();
 
@@ -476,6 +480,13 @@ public class AnalysisRunner {
             e.printStackTrace();
         }
 
+    }
+
+    private String concatPathCountString(String outputString) {
+        outputString += "+\r\npath count : \r\n";
+        outputString += "E: " + e_path_cnt + "\r\n";
+        outputString += "E: " + pe_path_cnt + "\r\n";
+        return outputString;
     }
 
     private void printExploitablePathCount() {
