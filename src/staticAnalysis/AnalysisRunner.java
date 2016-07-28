@@ -61,14 +61,17 @@ public class AnalysisRunner {
     private boolean crashSrcAnalysisCheck = false;
     private boolean interProcedureAnalysisCheck= false;
     
+    private Map<Long,Dangerousness> functionDangerousnessDynamicTable = new HashMap<>();
+    
     private double analysisVersion = 0;
     
     
     private int e_path_cnt = 0;
     private int pe_path_cnt = 0;
-    private int e_cnt;
-    private int pe_cnt;
-    private int ne_cnt;
+    private int e_cnt=0;
+    private int pe_cnt=0;
+    private int ne_cnt=0;
+    private int ne_call_cnt=0;
     private int totalTime = 0;
     
     
@@ -209,9 +212,19 @@ public class AnalysisRunner {
             {
                 Dangerousness dagnerousness_inter = interProcedureAnalysis(cihm, graph, curFunc, exploitableAnalysis);   
                 dagnerousness = getMoreDangerousOne(dagnerousness, dagnerousness_inter);
-            }            
-            break;
+            }
             
+            if (needToHasFunctionCall(dagnerousness)) {
+                
+                if(hasFunctionCalls(graph, curFunc)) 
+                {
+                    dagnerousness = Dangerousness.PE;
+                    ne_call_cnt++;
+                }
+            }
+            
+            
+            break;
             
         case FUNCTIONAnalysis:
             //TODO
@@ -239,7 +252,13 @@ public class AnalysisRunner {
         totalTime += processingTime;
         viewIndex++;
         
+        
+        functionDangerousnessDynamicTable.put(crashPointAddress, dagnerousness);
         return dagnerousness;
+    }
+
+    private boolean needToHasFunctionCall(Dangerousness dagnerousness) {
+        return dagnerousness == Dangerousness.NE && !interProcedureAnalysisCheck;
     }
 
     private boolean needToInterProcedureAnalysis(Dangerousness dagnerousness) {
@@ -271,6 +290,7 @@ public class AnalysisRunner {
         {            
             return dagnerousness; 
         }
+        
         List<Function> calleeFunction = getCallee(graph, curFunc);        
         Map<Long, CrashPoint> crashPointToFuncAddr = new HashMap<>() ;
         
@@ -287,15 +307,39 @@ public class AnalysisRunner {
         
         Dangerousness dangerousness = Dangerousness.NE;
         for (Function callee : calleeFunction) {
-            System.out.println("interProcedureAnalysis - crashAddress parse_11");
+            
             String calleeAddressHexString = "0x"+callee.getAddress().toHexString();
             Map<Long, CrashPoint> parseCrashFiles = CrashFileScanner.parseCrashFiles(null, module, calleeAddressHexString ,true);
-            crashPointToFuncAddr.putAll(parseCrashFiles);
-            dangerousness_f = runSingleCrash(InterProcedureMode.FUNCTIONAnalysis, crashPointToFuncAddr, cihm, callee.getAddress().toLong());
+            crashPointToFuncAddr.putAll(parseCrashFiles);            
+            
+            functionDangerousnessDynamicTable.put(callee.getAddress().toLong(), Dangerousness.PE);
+            
+            dangerousness_f = getCalleesDangerousness(cihm, crashPointToFuncAddr, callee);
+            
+            functionDangerousnessDynamicTable.put(callee.getAddress().toLong(), dangerousness_f);
+            
             dangerousness = getMoreDangerousOne(dangerousness_f, dangerousness);
             
         }
         return dangerousness;
+    }
+
+    private Dangerousness getCalleesDangerousness(CountInstructionHashMap cihm,
+            Map<Long, CrashPoint> crashPointToFuncAddr, Function callee) throws MLocException {
+        
+        
+        Dangerousness dangerousness_f;
+        
+        if(functionDangerousnessDynamicTable.containsKey(callee.getAddress().toLong()))
+        {
+            dangerousness_f = functionDangerousnessDynamicTable.get(callee.getAddress().toLong());           
+        }
+        else
+        {
+            dangerousness_f = runSingleCrash(InterProcedureMode.FUNCTIONAnalysis, crashPointToFuncAddr, cihm, callee.getAddress().toLong());
+        }
+        
+        return dangerousness_f;
     }
 
     private Dangerousness glovalVariableAnalysis(Function curFunc, List<Function> calleeFunctions,
@@ -443,7 +487,8 @@ public class AnalysisRunner {
         e_cnt = 0;
         pe_cnt = 0;
         ne_cnt = 0;
-
+        
+        
         FileOutputStream output;
         try {
             String moduleName = module.getName();
@@ -465,6 +510,7 @@ public class AnalysisRunner {
             String outputString = "\r\n" + "E : "+ e_cnt + "\r\n";
             outputString += "PE : "+ pe_cnt + "\r\n";
             outputString += "NE : "+ ne_cnt + "\r\n";
+            outputString += "call : "+ ne_call_cnt + "(ne --> pe)"+"\r\n";
             
             outputString = concatPathCountString(outputString);
             
