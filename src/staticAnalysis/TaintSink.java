@@ -5,7 +5,7 @@ import java.util.Map;
 
 import com.google.security.zynamics.binnavi.API.disassembly.Instruction;
 
-public interface TaintSink {
+interface TaintSink {
 
     boolean isTaintSink();
     Map<Instruction, List<Instruction>> getExploitArmPaths();

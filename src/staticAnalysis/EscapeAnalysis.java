@@ -5,31 +5,24 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.Stack;
 
-import com.google.security.zynamics.binnavi.API.disassembly.BasicBlock;
-import com.google.security.zynamics.binnavi.API.disassembly.FlowGraph;
 import com.google.security.zynamics.binnavi.API.disassembly.Function;
 import com.google.security.zynamics.binnavi.API.disassembly.Instruction;
 import com.google.security.zynamics.binnavi.API.gui.LogConsole;
-import com.google.security.zynamics.binnavi.API.reil.InternalTranslationException;
-import com.google.security.zynamics.binnavi.API.reil.ReilFunction;
 import com.google.security.zynamics.binnavi.API.reil.ReilHelpers;
 import com.google.security.zynamics.binnavi.API.reil.ReilInstruction;
 import com.google.security.zynamics.binnavi.API.reil.ReilOperand;
 import com.google.security.zynamics.binnavi.API.reil.mono.ILatticeGraph;
 import com.google.security.zynamics.binnavi.API.reil.mono.IStateVector;
-import com.google.security.zynamics.binnavi.API.reil.mono.InstructionGraph;
 import com.google.security.zynamics.binnavi.API.reil.mono.InstructionGraphNode;
 
 import data.ReilInstructionResolve;
 import helper.Dangerousness;
-import staticAnalysis.DefUseChain.DefUseNode;
 import staticAnalysis.RDAnalysis.RDLatticeElement;
 
-public class ReturnValueAnalysis implements TaintSink {
+public class EscapeAnalysis implements TaintSink{
     private IStateVector<InstructionGraphNode, RDLatticeElement> RDResult;
     private List<DefUseChain.DefUseGraph> duGraphs;
     private Function func;
@@ -39,7 +32,7 @@ public class ReturnValueAnalysis implements TaintSink {
 
     private ILatticeGraph<InstructionGraphNode> graph;
 
-    public ReturnValueAnalysis(List<DefUseChain.DefUseGraph> duGraphs, Function func, Map<Long, Dangerousness> crashFilteringResult, IStateVector<InstructionGraphNode, RDLatticeElement> RDResult, ILatticeGraph<InstructionGraphNode> graph) {
+    public EscapeAnalysis(List<DefUseChain.DefUseGraph> duGraphs, Function func, Map<Long, Dangerousness> crashFilteringResult, IStateVector<InstructionGraphNode, RDLatticeElement> RDResult, ILatticeGraph<InstructionGraphNode> graph) {
         this.duGraphs = duGraphs;
         this.func = func;
         this.RDResult = RDResult;
@@ -54,19 +47,10 @@ public class ReturnValueAnalysis implements TaintSink {
         return taintedReilPaths;
     }
 
-    private Instruction toArmInstruction(DefUseChain.DefUseNode duNode) {
-        Instruction inst = ReilInstructionResolve.findNativeInstruction(func,
-                ReilHelpers.toNativeAddress(duNode.getInst().getInstruction().getAddress()));
-
-        return inst;
-    }
-
-
 
     public boolean isTaintSink() {
         boolean isTaintSink = false;
-
-        isTaintSink = isRetrunValueTainted();
+        isTaintSink = isEscapable();
 
         return isTaintSink;
     }
@@ -108,9 +92,9 @@ public class ReturnValueAnalysis implements TaintSink {
     }
 
 
-    private boolean isRetrunValueTainted() {
+    private boolean isEscapable() {
 
-        searchTaintedRetrunValue();
+        checkEscapable();
         if (taintedReilPaths.isEmpty()) {
             return false;
         }
@@ -118,20 +102,16 @@ public class ReturnValueAnalysis implements TaintSink {
         return true;
     }
 
-    private boolean checkTaintedValue(DefUseChain.DefUseNode node) {
-        
-        
-        ReilInstruction inst = node.getInst().getInstruction();
-        InstructionGraphNode lastInstruction = getLastInstruction(func);
-        
-        if (inst.equals(lastInstruction)) {           
+    private boolean isEscapablePoint(DefUseChain.DefUseNode node) {
+
+        if (isReachableAtReturn(node.getInst())) {           
             return true;
         }
         return false;
 
     }
 
-    private void searchTaintedRetrunValue() {
+    private void checkEscapable() {
         // All the graphs is analyzed at this function
 
         for (DefUseChain.DefUseGraph duGraph : duGraphs) {
@@ -148,7 +128,7 @@ public class ReturnValueAnalysis implements TaintSink {
         // current node processing
         visitedNode.add(duNode);
         stackDFS.push(duNode);
-        if (checkTaintedValue(duNode)) {
+        if (isEscapablePoint(duNode)) {
             List<DefUseChain.DefUseNode> exploitPath = new ArrayList<DefUseChain.DefUseNode>();
             exploitPath.addAll(stackDFS);
             taintedReilPaths.put(duNode, exploitPath);
@@ -180,5 +160,4 @@ public class ReturnValueAnalysis implements TaintSink {
     public int getTotal_pe_count() {
         return 0;
     }
-
 }

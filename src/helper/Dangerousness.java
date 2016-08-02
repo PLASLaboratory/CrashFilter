@@ -16,5 +16,8 @@ public enum Dangerousness {
     public void setDangerous(int dangerous) {
         this.dangerous = dangerous;
     }
+    
+    
+    
 
 }

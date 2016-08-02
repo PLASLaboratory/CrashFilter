@@ -29,7 +29,7 @@ import helper.Dangerousness;
 import staticAnalysis.DefUseChain.DefUseNode;
 import staticAnalysis.RDAnalysis.RDLatticeElement;
 
-public class ReturnValueAnalysis implements TaintSink {
+public class taintSinkSample implements TaintSink {
     private IStateVector<InstructionGraphNode, RDLatticeElement> RDResult;
     private List<DefUseChain.DefUseGraph> duGraphs;
     private Function func;
@@ -39,7 +39,7 @@ public class ReturnValueAnalysis implements TaintSink {
 
     private ILatticeGraph<InstructionGraphNode> graph;
 
-    public ReturnValueAnalysis(List<DefUseChain.DefUseGraph> duGraphs, Function func, Map<Long, Dangerousness> crashFilteringResult, IStateVector<InstructionGraphNode, RDLatticeElement> RDResult, ILatticeGraph<InstructionGraphNode> graph) {
+    public taintSinkSample(List<DefUseChain.DefUseGraph> duGraphs, Function func, Map<Long, Dangerousness> crashFilteringResult, IStateVector<InstructionGraphNode, RDLatticeElement> RDResult, ILatticeGraph<InstructionGraphNode> graph) {
         this.duGraphs = duGraphs;
         this.func = func;
         this.RDResult = RDResult;
@@ -65,7 +65,6 @@ public class ReturnValueAnalysis implements TaintSink {
 
     public boolean isTaintSink() {
         boolean isTaintSink = false;
-
         isTaintSink = isRetrunValueTainted();
 
         return isTaintSink;
@@ -118,13 +117,10 @@ public class ReturnValueAnalysis implements TaintSink {
         return true;
     }
 
-    private boolean checkTaintedValue(DefUseChain.DefUseNode node) {
-        
-        
-        ReilInstruction inst = node.getInst().getInstruction();
-        InstructionGraphNode lastInstruction = getLastInstruction(func);
-        
-        if (inst.equals(lastInstruction)) {           
+    private boolean isTaintedReturnValue(DefUseChain.DefUseNode node) {
+
+        if (isReachableAtReturn(node.getInst())) {
+           
             return true;
         }
         return false;
@@ -148,13 +144,11 @@ public class ReturnValueAnalysis implements TaintSink {
         // current node processing
         visitedNode.add(duNode);
         stackDFS.push(duNode);
-        if (checkTaintedValue(duNode)) {
+        if (isTaintedReturnValue(duNode)) {
             List<DefUseChain.DefUseNode> exploitPath = new ArrayList<DefUseChain.DefUseNode>();
             exploitPath.addAll(stackDFS);
             taintedReilPaths.put(duNode, exploitPath);
             
-            
-            //printTaintedReilPaths();
         }
 
         // children iteration

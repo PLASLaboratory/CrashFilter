@@ -6,8 +6,10 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.StringTokenizer;
 
 import com.google.security.zynamics.binnavi.API.disassembly.CouldntLoadDataException;
@@ -17,7 +19,6 @@ import com.google.security.zynamics.binnavi.API.disassembly.FunctionEdge;
 import com.google.security.zynamics.binnavi.API.disassembly.Instruction;
 import com.google.security.zynamics.binnavi.API.disassembly.Module;
 import com.google.security.zynamics.binnavi.API.disassembly.ModuleHelpers;
-import com.google.security.zynamics.binnavi.API.disassembly.Operand;
 import com.google.security.zynamics.binnavi.API.disassembly.PartialLoadException;
 import com.google.security.zynamics.binnavi.API.disassembly.View;
 import com.google.security.zynamics.binnavi.API.gui.LogConsole;
@@ -53,13 +54,17 @@ public class AnalysisRunner {
     final private File crashFolder;
     final private PluginInterface m_pluginInterface;
     final private Module module;
+
     private Map<Long, Dangerousness> crashFilteringResult = new HashMap<>();
 
     private String crashAddr = "";
+    private Set<Long> toBeEscapalbeAnalyzed = new HashSet<>( );
+    
     private boolean singleCrashCheck = false;
     private boolean memoryAnalysisCheck = false;
     private boolean crashSrcAnalysisCheck = false;
     private boolean interProcedureAnalysisCheck= false;
+    
     
     private Map<Long,Dangerousness> functionDangerousnessDynamicTable = new HashMap<>();
     
@@ -73,7 +78,8 @@ public class AnalysisRunner {
     private int ne_cnt=0;
     private int ne_call_cnt=0;
     private int totalTime = 0;
-    
+    private int escapableAnalysisCount=0;
+     
     
     
     public AnalysisRunner(PluginInterface m_plugin, File crachFolder, Module module, String crashAddr, int optionCode, int interProcedureDepth) {        
@@ -110,6 +116,7 @@ public class AnalysisRunner {
         return 1.0;
         
     }
+    
     void runAnalysis(InterProcedureMode interProcedureAnalysisMode) throws MLocException {
 
         Map<Long, CrashPoint> crashPointToFuncAddr = findFunctionFromCrashPointAddr();
@@ -186,7 +193,6 @@ public class AnalysisRunner {
 
         LogConsole.log("==start du analysis  1==\n");
         DefUseChain du = new DefUseChain(RDResult, graph, crashPointAddress, crashSrcAnalysisCheck);
-
         du.setMemoryResult(mLocResult);
         du.defUseChaining();
         LogConsole.log("== end DU analysis ==\n");
@@ -227,7 +233,6 @@ public class AnalysisRunner {
             break;
             
         case FUNCTIONAnalysis:
-            //TODO
             if (returnValueAnalysis.isTaintSink() || exploitableAnalysis.isTaintSink()) {
                 makeView(crashPointToFuncAddr, viewIndex, crashPointAddress, curFunc, returnValueAnalysis);
             }            
@@ -238,6 +243,11 @@ public class AnalysisRunner {
             break;
         }
         
+        // add escape analysis -->
+        // src : returned value
+        // sink : return value
+
+        dagnerousness = escapableAnalysis(dagnerousness, graph, RDResult, curFunc, du);
         
         e_path_cnt += exploitableAnalysis.getTotal_e_count();
         pe_path_cnt += exploitableAnalysis.getTotal_pe_count();
@@ -254,6 +264,18 @@ public class AnalysisRunner {
         
         
         functionDangerousnessDynamicTable.put(crashPointAddress, dagnerousness);
+        return dagnerousness;
+    }
+
+    private Dangerousness escapableAnalysis(Dangerousness dagnerousness, ILatticeGraph<InstructionGraphNode> graph,
+            IStateVector<InstructionGraphNode, RDLatticeElement> RDResult, Function curFunc, DefUseChain du) {
+        ReturnValueAnalysis escapableAnalysis = new ReturnValueAnalysis(du.getDuGraphs(), curFunc, crashFilteringResult,RDResult, graph);
+        if (escapableAnalysis.isTaintSink()) {
+            dagnerousness = getMoreDangerousOne(dagnerousness, Dangerousness.PE);
+            if (dagnerousness.getDangerous() > Dangerousness.E.getDangerous()) {
+                escapableAnalysisCount++;
+            }
+        }
         return dagnerousness;
     }
 
@@ -312,12 +334,10 @@ public class AnalysisRunner {
             Map<Long, CrashPoint> parseCrashFiles = CrashFileScanner.parseCrashFiles(null, module, calleeAddressHexString ,true);
             crashPointToFuncAddr.putAll(parseCrashFiles);            
             
-            functionDangerousnessDynamicTable.put(callee.getAddress().toLong(), Dangerousness.PE);
+            functionDangerousnessDynamicTable.put(callee.getAddress().toLong(), Dangerousness.NE);            
             
-            dangerousness_f = getCalleesDangerousness(cihm, crashPointToFuncAddr, callee);
-            
-            functionDangerousnessDynamicTable.put(callee.getAddress().toLong(), dangerousness_f);
-            
+            dangerousness_f = getCalleesDangerousness(cihm, crashPointToFuncAddr, callee);            
+            functionDangerousnessDynamicTable.put(callee.getAddress().toLong(), dangerousness_f);            
             dangerousness = getMoreDangerousOne(dangerousness_f, dangerousness);
             
         }
@@ -495,7 +515,7 @@ public class AnalysisRunner {
             output = new FileOutputStream("d:/"+moduleName+ "_" +analysisVersion+ ".txt");
 
             for (Long addr : crashFilteringResult.keySet()) {
-                String outputStr = "0x" + addr + "  :  " + crashFilteringResult.get(addr) + "\r\n";
+                String outputStr = "0x" + Long.toHexString(addr) + "  :  " + crashFilteringResult.get(addr) + "\r\n";
                 System.out.print(outputStr);
                 output.write(outputStr.getBytes());
                 if (crashFilteringResult.get(addr).equals(Dangerousness.E))
@@ -510,8 +530,9 @@ public class AnalysisRunner {
             String outputString = "\r\n" + "E : "+ e_cnt + "\r\n";
             outputString += "PE : "+ pe_cnt + "\r\n";
             outputString += "NE : "+ ne_cnt + "\r\n";
-            outputString += "call : "+ ne_call_cnt + "(ne --> pe)"+"\r\n";
             
+            outputString += "\r\ncall : "+ ne_call_cnt + "(ne --> pe)"+"\r\n";
+            outputString += "escapable: "+ escapableAnalysisCount + "\r\n";
             outputString = concatPathCountString(outputString);
             
             outputString += "total time : "+ totalTime + "\r\n";
