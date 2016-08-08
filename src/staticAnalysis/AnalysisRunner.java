@@ -207,6 +207,9 @@ public class AnalysisRunner {
         switch (interProcedureAnalysisMode) {
         case NORMAL:
             
+            
+           
+            
             if (exploitableAnalysis.isTaintSink()) {
                 makeView(crashPointToFuncAddr, viewIndex, crashPointAddress, curFunc, exploitableAnalysis);
                 dagnerousness = exploitableAnalysis.getDangerousness();
@@ -220,14 +223,14 @@ public class AnalysisRunner {
                 dagnerousness = getMoreDangerousOne(dagnerousness, dagnerousness_inter);
             }
             
-            if (needToHasFunctionCall(dagnerousness)) {
-                
-                if(hasFunctionCalls(graph, curFunc)) 
-                {
+            if(hasFunctionCalls(graph, curFunc)) 
+            {                
+                if (needToHasFunctionCall(dagnerousness)) {                    
                     dagnerousness = Dangerousness.PE;
-                    ne_call_cnt++;
-                }
+                }                
+                ne_call_cnt++;
             }
+            
             
             
             break;
