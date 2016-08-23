@@ -5,28 +5,19 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.Stack;
 
-import com.google.security.zynamics.binnavi.API.disassembly.BasicBlock;
-import com.google.security.zynamics.binnavi.API.disassembly.FlowGraph;
 import com.google.security.zynamics.binnavi.API.disassembly.Function;
 import com.google.security.zynamics.binnavi.API.disassembly.Instruction;
-import com.google.security.zynamics.binnavi.API.gui.LogConsole;
-import com.google.security.zynamics.binnavi.API.reil.InternalTranslationException;
-import com.google.security.zynamics.binnavi.API.reil.ReilFunction;
 import com.google.security.zynamics.binnavi.API.reil.ReilHelpers;
 import com.google.security.zynamics.binnavi.API.reil.ReilInstruction;
-import com.google.security.zynamics.binnavi.API.reil.ReilOperand;
 import com.google.security.zynamics.binnavi.API.reil.mono.ILatticeGraph;
 import com.google.security.zynamics.binnavi.API.reil.mono.IStateVector;
-import com.google.security.zynamics.binnavi.API.reil.mono.InstructionGraph;
 import com.google.security.zynamics.binnavi.API.reil.mono.InstructionGraphNode;
 
 import data.ReilInstructionResolve;
 import helper.Dangerousness;
-import staticAnalysis.DefUseChain.DefUseNode;
 import staticAnalysis.RDAnalysis.RDLatticeElement;
 
 public class ReturnValueAnalysis implements TaintSink {
@@ -36,6 +27,11 @@ public class ReturnValueAnalysis implements TaintSink {
     private Map<DefUseChain.DefUseNode, List<DefUseChain.DefUseNode>> taintedReilPaths = new HashMap<DefUseChain.DefUseNode, List<DefUseChain.DefUseNode>>();
     private Map<Instruction, List<Instruction>> taintedArmPaths = new HashMap<Instruction, List<Instruction>>();
 
+
+    private Dangerousness dnagerousness= Dangerousness.NE;
+    public Dangerousness getDnagerousness() {
+        return dnagerousness;
+    }
 
     private ILatticeGraph<InstructionGraphNode> graph;
 
@@ -125,6 +121,7 @@ public class ReturnValueAnalysis implements TaintSink {
         InstructionGraphNode lastInstruction = getLastInstruction(func);
         
         if (inst.equals(lastInstruction)) {           
+            dnagerousness = Dangerousness.PE;
             return true;
         }
         return false;

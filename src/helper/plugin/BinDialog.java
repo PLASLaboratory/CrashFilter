@@ -42,6 +42,7 @@ public class BinDialog extends JDialog {
 	private Checkbox crashSrcAnalysisCheck = new Checkbox("crashSrcAnalysis",true);	
 	private Checkbox singleCrashCheck = new Checkbox("singleCrash", true); 	
 	private Checkbox interProcedureAnalysisCheck = new Checkbox("interProcedure", true);
+	private Checkbox callCountCheck = new Checkbox("callCountCheck", true);
 	
 	int optionalCode = 0;
 	// Add, Start Listener
@@ -74,6 +75,7 @@ public class BinDialog extends JDialog {
 		
 		checkerPanel.add(crashSrcAnalysisCheck);
 		checkerPanel.add(memoryAnalysisCheck);		
+		checkerPanel.add(callCountCheck);
 		checkerPanel.add(interProcedureAnalysisCheck);
 		
 		
@@ -117,7 +119,7 @@ public class BinDialog extends JDialog {
 		if(memoryAnalysisCheck.getState()) code |= 0x10;
 		if(crashSrcAnalysisCheck.getState()) code |= 0x100;
 		if(interProcedureAnalysisCheck.getState()) code |= 0x1000;
-		
+		if(callCountCheck.getState()) code |= 0x10000;
 		return code;
 	}
 	public boolean wasCancelled() {

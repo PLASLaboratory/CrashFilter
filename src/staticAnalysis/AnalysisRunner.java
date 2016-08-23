@@ -64,9 +64,10 @@ public class AnalysisRunner {
     private boolean memoryAnalysisCheck = false;
     private boolean crashSrcAnalysisCheck = false;
     private boolean interProcedureAnalysisCheck= false;
-    
+    private boolean callCountCheck = false;
     
     private Map<Long,Dangerousness> functionDangerousnessDynamicTable = new HashMap<>();
+    private Map<Long,Dangerousness> functionDangerousnessDynamicTable_temp = new HashMap<>();
     
     private double analysisVersion = 0;
     
@@ -79,6 +80,7 @@ public class AnalysisRunner {
     private int ne_call_cnt=0;
     private int totalTime = 0;
     private int escapableAnalysisCount=0;
+    
      
     
     
@@ -95,6 +97,7 @@ public class AnalysisRunner {
         singleCrashCheck = ( (code & 0x1) == 0x1);
         memoryAnalysisCheck = ( (code & 0x10) == 0x10);
         crashSrcAnalysisCheck = ( (code & 0x100) == 0x100);
+        callCountCheck =( (code & 0x10000) == 0x10000 );
         interProcedureAnalysisCheck =( (code & 0x1000) == 0x1000 );
 
         System.out.println("singleCrashCheck  :" + singleCrashCheck );
@@ -110,7 +113,14 @@ public class AnalysisRunner {
         
         
         if(crashSrcAnalysisCheck && memoryAnalysisCheck && interProcedureAnalysisCheck) return 1.4;
-        if(crashSrcAnalysisCheck && memoryAnalysisCheck) return 1.3;
+        if(crashSrcAnalysisCheck && memoryAnalysisCheck) 
+        {
+            if(callCountCheck)
+            {
+                return 1.31;
+            }
+            return 1.30;
+        }
         if(crashSrcAnalysisCheck) return 1.2;
         
         return 1.0;
@@ -223,20 +233,22 @@ public class AnalysisRunner {
                 dagnerousness = getMoreDangerousOne(dagnerousness, dagnerousness_inter);
             }
             
-            if(hasFunctionCalls(graph, curFunc)) 
-            {                
-                if (needToHasFunctionCall(dagnerousness)) {                    
-                    dagnerousness = Dangerousness.PE;
-                }                
-                ne_call_cnt++;
-            }
             
+            if (needToCountFunctionCall(dagnerousness)) {
+                
+                if(hasFunctionCalls(graph, curFunc)) 
+                {
+                    dagnerousness = Dangerousness.PE;
+                    ne_call_cnt++;
+                }
+            }
             
             
             break;
             
         case FUNCTIONAnalysis:
             if (returnValueAnalysis.isTaintSink() || exploitableAnalysis.isTaintSink()) {
+                dagnerousness = getMoreDangerousOne(returnValueAnalysis.getDnagerousness(),exploitableAnalysis.getDangerousness());
                 makeView(crashPointToFuncAddr, viewIndex, crashPointAddress, curFunc, returnValueAnalysis);
             }            
             break;
@@ -282,13 +294,22 @@ public class AnalysisRunner {
         return dagnerousness;
     }
 
-    private boolean needToHasFunctionCall(Dangerousness dagnerousness) {
-        return dagnerousness == Dangerousness.NE && !interProcedureAnalysisCheck;
+    private boolean needToCountFunctionCall(Dangerousness dagnerousness) {
+        if(callCountCheck)
+        {
+            return dagnerousness == Dangerousness.NE && !interProcedureAnalysisCheck;
+        }
+        return false;
     }
 
     private boolean needToInterProcedureAnalysis(Dangerousness dagnerousness) {
         
-        return dagnerousness != Dangerousness.E && interProcedureAnalysisCheck;
+        if(interProcedureAnalysisCheck)
+        {
+            return (dagnerousness == Dangerousness.NE) ||(dagnerousness == Dangerousness.PE);
+        }
+        
+        return false;
     }
 
     private void crashSrcAnalysis(InterProcedureMode interProcedureAnalysisMode, Long crashPointAddress,
@@ -323,13 +344,8 @@ public class AnalysisRunner {
         
         Dangerousness dangerousness_g = Dangerousness.NE ;
         dangerousness_g  = glovalVariableAnalysis(curFunc, calleeFunction, crashPointToFuncAddr);
-        if(dangerousness_g == Dangerousness.PE)
-        {
-            return Dangerousness.PE;
-        }
-        
-        Dangerousness dangerousness_f;
-        
+
+        Dangerousness dangerousness_f;         
         Dangerousness dangerousness = Dangerousness.NE;
         for (Function callee : calleeFunction) {
             
@@ -337,11 +353,11 @@ public class AnalysisRunner {
             Map<Long, CrashPoint> parseCrashFiles = CrashFileScanner.parseCrashFiles(null, module, calleeAddressHexString ,true);
             crashPointToFuncAddr.putAll(parseCrashFiles);            
             
-            functionDangerousnessDynamicTable.put(callee.getAddress().toLong(), Dangerousness.NE);            
             
-            dangerousness_f = getCalleesDangerousness(cihm, crashPointToFuncAddr, callee);            
+            dangerousness_f = getCalleesDangerousness(cihm, crashPointToFuncAddr, callee);    
+            
             functionDangerousnessDynamicTable.put(callee.getAddress().toLong(), dangerousness_f);            
-            dangerousness = getMoreDangerousOne(dangerousness_f, dangerousness);
+            dangerousness = getMoreDangerousOne(dangerousness_f, dangerousness_g);
             
         }
         return dangerousness;
@@ -352,15 +368,8 @@ public class AnalysisRunner {
         
         
         Dangerousness dangerousness_f;
+        dangerousness_f = runSingleCrash(InterProcedureMode.FUNCTIONAnalysis, crashPointToFuncAddr, cihm, callee.getAddress().toLong());
         
-        if(functionDangerousnessDynamicTable.containsKey(callee.getAddress().toLong()))
-        {
-            dangerousness_f = functionDangerousnessDynamicTable.get(callee.getAddress().toLong());           
-        }
-        else
-        {
-            dangerousness_f = runSingleCrash(InterProcedureMode.FUNCTIONAnalysis, crashPointToFuncAddr, cihm, callee.getAddress().toLong());
-        }
         
         return dangerousness_f;
     }
@@ -391,7 +400,7 @@ public class AnalysisRunner {
 
     private boolean dontHaveToInterProcedureAnalysis(ILatticeGraph<InstructionGraphNode> graph, Function curFunc,
             Dangerousness dagnerousness) {
-        return !(Dangerousness.NE).equals(dagnerousness) || !hasFunctionCalls(graph, curFunc);
+        return  !hasFunctionCalls(graph, curFunc);
     }
 
     private Dangerousness getMoreDangerousOne(Dangerousness dagnerousness_1, Dangerousness dagnerousness_2) {
@@ -532,9 +541,10 @@ public class AnalysisRunner {
             
             String outputString = "\r\n" + "E : "+ e_cnt + "\r\n";
             outputString += "PE : "+ pe_cnt + "\r\n";
-            outputString += "NE : "+ ne_cnt + "\r\n";
+            outputString += "NE : "+ ne_cnt + "\r\n";            
             
-            outputString += "\r\ncall : "+ ne_call_cnt + "(ne --> pe)"+"\r\n";
+            if(!interProcedureAnalysisCheck){   outputString += "\r\ncall : "+ ne_call_cnt + "(ne --> pe)"+"\r\n"; }            
+            
             outputString += "escapable: "+ escapableAnalysisCount + "\r\n";
             outputString = concatPathCountString(outputString);
             
