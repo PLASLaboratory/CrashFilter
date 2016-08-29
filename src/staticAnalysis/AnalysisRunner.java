@@ -87,6 +87,7 @@ public class AnalysisRunner {
         this.crashAddr = crashAddr;
         decodeOptionCode(optionCode);
     }
+    
 
     private void decodeOptionCode(int code) {
         singleCrashCheck = ((code & 0x1) == 0x1);
