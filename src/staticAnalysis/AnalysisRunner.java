@@ -58,33 +58,28 @@ public class AnalysisRunner {
     private Map<Long, Dangerousness> crashFilteringResult = new HashMap<>();
 
     private String crashAddr = "";
-    private Set<Long> toBeEscapalbeAnalyzed = new HashSet<>( );
-    
+
     private boolean singleCrashCheck = false;
     private boolean memoryAnalysisCheck = false;
     private boolean crashSrcAnalysisCheck = false;
-    private boolean interProcedureAnalysisCheck= false;
+    private boolean interProcedureAnalysisCheck = false;
     private boolean callCountCheck = false;
-    
-    private Map<Long,Dangerousness> functionDangerousnessDynamicTable = new HashMap<>();
-    private Map<Long,Dangerousness> functionDangerousnessDynamicTable_temp = new HashMap<>();
-    
+
+    private Map<Long, Dangerousness> functionDangerousnessDynamicTable = new HashMap<>();
+
     private double analysisVersion = 0;
-    
-    
+
     private int e_path_cnt = 0;
     private int pe_path_cnt = 0;
-    private int e_cnt=0;
-    private int pe_cnt=0;
-    private int ne_cnt=0;
-    private int ne_call_cnt=0;
+    private int e_cnt = 0;
+    private int pe_cnt = 0;
+    private int ne_cnt = 0;
+    private int ne_call_cnt = 0;
     private int totalTime = 0;
-    private int escapableAnalysisCount=0;
-    
-     
-    
-    
-    public AnalysisRunner(PluginInterface m_plugin, File crachFolder, Module module, String crashAddr, int optionCode, int interProcedureDepth) {        
+    private int escapableAnalysisCount = 0;
+
+    public AnalysisRunner(PluginInterface m_plugin, File crachFolder, Module module, String crashAddr, int optionCode,
+            int interProcedureDepth) {
         this.module = module;
         System.out.println(module.getFilebase());
         this.m_pluginInterface = m_plugin;
@@ -94,52 +89,51 @@ public class AnalysisRunner {
     }
 
     private void decodeOptionCode(int code) {
-        singleCrashCheck = ( (code & 0x1) == 0x1);
-        memoryAnalysisCheck = ( (code & 0x10) == 0x10);
-        crashSrcAnalysisCheck = ( (code & 0x100) == 0x100);
-        callCountCheck =( (code & 0x10000) == 0x10000 );
-        interProcedureAnalysisCheck =( (code & 0x1000) == 0x1000 );
+        singleCrashCheck = ((code & 0x1) == 0x1);
+        memoryAnalysisCheck = ((code & 0x10) == 0x10);
+        crashSrcAnalysisCheck = ((code & 0x100) == 0x100);
+        callCountCheck = ((code & 0x10000) == 0x10000);
+        interProcedureAnalysisCheck = ((code & 0x1000) == 0x1000);
 
-        System.out.println("singleCrashCheck  :" + singleCrashCheck );
-        System.out.println("crashSrcAnalysisCheck  :" +  crashSrcAnalysisCheck);
-        System.out.println("memoryAnalysisCheck  :" +  memoryAnalysisCheck);
-        System.out.println("interProcedureAnalysisCheck  :" + interProcedureAnalysisCheck );
-        
+        System.out.println("singleCrashCheck  :" + singleCrashCheck);
+        System.out.println("crashSrcAnalysisCheck  :" + crashSrcAnalysisCheck);
+        System.out.println("memoryAnalysisCheck  :" + memoryAnalysisCheck);
+        System.out.println("interProcedureAnalysisCheck  :" + interProcedureAnalysisCheck);
+
         analysisVersion = getAnalysisVersion();
-        
+
     }
 
     private double getAnalysisVersion() {
-        
-        
-        if(crashSrcAnalysisCheck && memoryAnalysisCheck && interProcedureAnalysisCheck) return 1.4;
-        if(crashSrcAnalysisCheck && memoryAnalysisCheck) 
-        {
-            if(callCountCheck)
-            {
+
+        if (crashSrcAnalysisCheck && memoryAnalysisCheck && interProcedureAnalysisCheck)
+            return 1.4;
+        if (crashSrcAnalysisCheck && memoryAnalysisCheck) {
+            if (callCountCheck) {
                 return 1.31;
             }
             return 1.30;
         }
-        if(crashSrcAnalysisCheck) return 1.2;
-        
+        if (crashSrcAnalysisCheck)
+            return 1.2;
+
         return 1.0;
-        
+
     }
-    
+
     void runAnalysis(InterProcedureMode interProcedureAnalysisMode) throws MLocException {
 
         Map<Long, CrashPoint> crashPointToFuncAddr = findFunctionFromCrashPointAddr();
         CountInstructionHashMap cihm = new CountInstructionHashMap();
-        
 
         for (Long crashPointAddress : crashPointToFuncAddr.keySet()) {
 
-            Dangerousness dangerousness = runSingleCrash(interProcedureAnalysisMode, crashPointToFuncAddr, cihm, crashPointAddress);
+            Dangerousness dangerousness = runSingleCrash(interProcedureAnalysisMode, crashPointToFuncAddr, cihm,
+                    crashPointAddress);
             crashFilteringResult.put(crashPointAddress, dangerousness);
-            
+
         }
-        
+
         LogConsole.log(cihm.toString());
 
         countExploitableCrash();
@@ -152,8 +146,8 @@ public class AnalysisRunner {
     private Dangerousness runSingleCrash(InterProcedureMode interProcedureAnalysisMode,
             Map<Long, CrashPoint> crashPointToFuncAddr, CountInstructionHashMap cihm, Long crashPointAddress)
                     throws MLocException {
-        
-        Dangerousness dagnerousness = Dangerousness.NE ;
+
+        Dangerousness dagnerousness = Dangerousness.NE;
         ILatticeGraph<InstructionGraphNode> graph = null;
         IStateVector<InstructionGraphNode, RDLatticeElement> RDResult = null;
         IStateVector<InstructionGraphNode, MLocLatticeElement> mLocResult = null;
@@ -165,126 +159,108 @@ public class AnalysisRunner {
         crashAddr = Long.toHexString(crashPointAddress);
 
         LogConsole.log("now analyzing : " + Long.toHexString(crashPointAddress) + "\n");
-        System.out.println("\n now analyzing : " + Long.toHexString(crashPointAddress) );
+        System.out.println("\n now analyzing : " + Long.toHexString(crashPointAddress));
         long before = System.currentTimeMillis();
 
         ReilFunction curReilFunc = null;
         List<ReilInstruction> crashReilInst = new ArrayList<ReilInstruction>();
         List<InstructionGraphNode> taintSourceInstructionGraphNodes = new ArrayList<InstructionGraphNode>();
-        
 
-        Function curFunc = ModuleHelpers.getFunction(module,
-                crashPointToFuncAddr.get(crashPointAddress).getFuncAddr());
+        Function curFunc = ModuleHelpers.getFunction(module, crashPointToFuncAddr.get(crashPointAddress).getFuncAddr());
 
         Instruction crashInst = checkFunctionLoaded(cihm, crashPointAddress, curFunc);
         graph = translateFunc2ReilFunc(graph, curReilFunc, crashReilInst, taintSourceInstructionGraphNodes, curFunc,
                 crashInst);
 
-        
-        
         /************* MLocAnalysis_RTable+Env ********************/
         if (memoryAnalysisCheck) {
             mLocResult = memoryAnalysis(graph, curFunc, mLocResult);
         }
 
-   
-        
-
         System.out.println("== start EEEEEEEEEEEEEEE ==");
-        VariableFinder vf = new VariableFinder(module, curFunc);        
+        VariableFinder vf = new VariableFinder(module, curFunc);
         RDAnalysis rda = new RDAnalysis(graph, crashPointAddress, vf);
 
         RDResult = rda.runRDAnalysis(interProcedureAnalysisMode);
         // rda.printRD(RDResult);
         LogConsole.log("== end rd analysis ==\n");
-        
-        
-        
 
         LogConsole.log("==start du analysis  1==\n");
         DefUseChain du = new DefUseChain(RDResult, graph, crashPointAddress, crashSrcAnalysisCheck);
         du.setMemoryResult(mLocResult);
         du.defUseChaining();
         LogConsole.log("== end DU analysis ==\n");
-        
- 
-        
-        crashSrcAnalysis(interProcedureAnalysisMode, crashPointAddress, graph, taintSourceInstructionGraphNodes, vf, du);
-        
+
+        crashSrcAnalysis(interProcedureAnalysisMode, crashPointAddress, graph, taintSourceInstructionGraphNodes, vf,
+                du);
+
         ExploitableAnalysis exploitableAnalysis = new ExploitableAnalysis(du.getDuGraphs(), curFunc, crashPointAddress);
-        ReturnValueAnalysis returnValueAnalysis = new ReturnValueAnalysis(du.getDuGraphs(), curFunc, crashFilteringResult, RDResult, graph);
-        
+        ReturnValueAnalysis returnValueAnalysis = new ReturnValueAnalysis(du.getDuGraphs(), curFunc,
+                crashFilteringResult, RDResult, graph);
+
         switch (interProcedureAnalysisMode) {
         case NORMAL:
-            
-            
-           
-            
+
             if (exploitableAnalysis.isTaintSink()) {
                 makeView(crashPointToFuncAddr, viewIndex, crashPointAddress, curFunc, exploitableAnalysis);
                 dagnerousness = exploitableAnalysis.getDangerousness();
             }
-            
-            
-            
-            if(needToInterProcedureAnalysis(dagnerousness))
-            {
-                Dangerousness dagnerousness_inter = interProcedureAnalysis(cihm, graph, curFunc, exploitableAnalysis);   
+
+            if (needToInterProcedureAnalysis(dagnerousness)) {
+                Dangerousness dagnerousness_inter = interProcedureAnalysis(cihm, graph, curFunc, exploitableAnalysis);
                 dagnerousness = getMoreDangerousOne(dagnerousness, dagnerousness_inter);
-            }
-            
-            
-            if (needToCountFunctionCall(dagnerousness)) {
-                
-                if(hasFunctionCalls(graph, curFunc)) 
-                {
-                    dagnerousness = Dangerousness.PE;
-                    ne_call_cnt++;
+                ne_call_cnt++;
+            } else {
+                if (needToCountFunctionCall(dagnerousness)) {
+
+                    if (hasFunctionCalls(graph, curFunc)) {
+                        dagnerousness = Dangerousness.PE;
+                        ne_call_cnt++;
+                    }
                 }
             }
-            
-            
+
             break;
-            
+
         case FUNCTIONAnalysis:
             if (returnValueAnalysis.isTaintSink() || exploitableAnalysis.isTaintSink()) {
-                dagnerousness = getMoreDangerousOne(returnValueAnalysis.getDnagerousness(),exploitableAnalysis.getDangerousness());
+                dagnerousness = getMoreDangerousOne(returnValueAnalysis.getDnagerousness(),
+                        exploitableAnalysis.getDangerousness());
                 makeView(crashPointToFuncAddr, viewIndex, crashPointAddress, curFunc, returnValueAnalysis);
-            }            
+            }
             break;
         case GVAnalysis:
             break;
         default:
             break;
         }
-        
+
         // add escape analysis -->
         // src : returned value
         // sink : return value
 
         dagnerousness = escapableAnalysis(dagnerousness, graph, RDResult, curFunc, du);
-        
+
         e_path_cnt += exploitableAnalysis.getTotal_e_count();
         pe_path_cnt += exploitableAnalysis.getTotal_pe_count();
 
         LogConsole.log("==========end Exploitable analysis ===========\n");
-        
-        
+
         long after = System.currentTimeMillis();
         long processingTime = after - before;
 
         LogConsole.log(curFunc.getName() + "-- time : " + processingTime + "\n\n");
         totalTime += processingTime;
         viewIndex++;
-        
-        
+
         functionDangerousnessDynamicTable.put(crashPointAddress, dagnerousness);
         return dagnerousness;
     }
 
     private Dangerousness escapableAnalysis(Dangerousness dagnerousness, ILatticeGraph<InstructionGraphNode> graph,
             IStateVector<InstructionGraphNode, RDLatticeElement> RDResult, Function curFunc, DefUseChain du) {
-        ReturnValueAnalysis escapableAnalysis = new ReturnValueAnalysis(du.getDuGraphs(), curFunc, crashFilteringResult,RDResult, graph);
+        ReturnValueAnalysis escapableAnalysis = new ReturnValueAnalysis(du.getDuGraphs(), curFunc, crashFilteringResult,
+                RDResult, graph);
         if (escapableAnalysis.isTaintSink()) {
             dagnerousness = getMoreDangerousOne(dagnerousness, Dangerousness.PE);
             if (dagnerousness.getDangerous() > Dangerousness.E.getDangerous()) {
@@ -295,104 +271,101 @@ public class AnalysisRunner {
     }
 
     private boolean needToCountFunctionCall(Dangerousness dagnerousness) {
-        if(callCountCheck)
-        {
-            return dagnerousness == Dangerousness.NE && !interProcedureAnalysisCheck;
+        if (callCountCheck) {
+            return (dagnerousness == Dangerousness.PE || dagnerousness == Dangerousness.NE)
+                    && !interProcedureAnalysisCheck;
         }
         return false;
     }
 
     private boolean needToInterProcedureAnalysis(Dangerousness dagnerousness) {
-        
-        if(interProcedureAnalysisCheck)
-        {
-            return (dagnerousness == Dangerousness.NE) ||(dagnerousness == Dangerousness.PE);
+
+        if (interProcedureAnalysisCheck) {
+            return (dagnerousness == Dangerousness.NE) || (dagnerousness == Dangerousness.PE);
         }
-        
+
         return false;
     }
 
     private void crashSrcAnalysis(InterProcedureMode interProcedureAnalysisMode, Long crashPointAddress,
             ILatticeGraph<InstructionGraphNode> graph, List<InstructionGraphNode> taintSourceInstructionGraphNodes,
             VariableFinder vf, DefUseChain du) {
-        //crashSrcAnalysis
+        // crashSrcAnalysis
         if (crashSrcAnalysisCheck) {
             if (interProcedureAnalysisMode != InterProcedureMode.NORMAL) {
                 taintSourceInstructionGraphNodes.clear();
             }
-            taintSourceInstructionGraphNodes.addAll(
-                    CrashSourceAdder.getInstructions(graph, crashPointAddress, interProcedureAnalysisMode, vf));
+            taintSourceInstructionGraphNodes
+                    .addAll(CrashSourceAdder.getInstructions(graph, crashPointAddress, interProcedureAnalysisMode, vf));
         }
         for (InstructionGraphNode taintSourceInstructionGraphNode : taintSourceInstructionGraphNodes) {
             du.createDefUseGraph(taintSourceInstructionGraphNode);
         }
     }
 
-    private Dangerousness interProcedureAnalysis(CountInstructionHashMap cihm, ILatticeGraph<InstructionGraphNode> graph, Function curFunc, ExploitableAnalysis exploitableAnalysis) throws MLocException {
-        
-        Dangerousness  dagnerousness = exploitableAnalysis.getDangerousness();
-        
-        if (dontHaveToInterProcedureAnalysis(graph, curFunc, dagnerousness))            
-        {            
-            return dagnerousness; 
-        }
-        
-        List<Function> calleeFunction = getCallee(graph, curFunc);        
-        Map<Long, CrashPoint> crashPointToFuncAddr = new HashMap<>() ;
-        
-        
-        
-        Dangerousness dangerousness_g = Dangerousness.NE ;
-        dangerousness_g  = glovalVariableAnalysis(curFunc, calleeFunction, crashPointToFuncAddr);
+    private Dangerousness interProcedureAnalysis(CountInstructionHashMap cihm,
+            ILatticeGraph<InstructionGraphNode> graph, Function curFunc, ExploitableAnalysis exploitableAnalysis)
+                    throws MLocException {
 
-        Dangerousness dangerousness_f;         
-        Dangerousness dangerousness = Dangerousness.NE;
-        for (Function callee : calleeFunction) {
-            
-            String calleeAddressHexString = "0x"+callee.getAddress().toHexString();
-            Map<Long, CrashPoint> parseCrashFiles = CrashFileScanner.parseCrashFiles(null, module, calleeAddressHexString ,true);
-            crashPointToFuncAddr.putAll(parseCrashFiles);            
-            
-            
-            dangerousness_f = getCalleesDangerousness(cihm, crashPointToFuncAddr, callee);    
-            
-            functionDangerousnessDynamicTable.put(callee.getAddress().toLong(), dangerousness_f);            
-            dangerousness = getMoreDangerousOne(dangerousness_f, dangerousness_g);
-            
+        Dangerousness dagnerousness = exploitableAnalysis.getDangerousness();
+
+        if (dontHaveToInterProcedureAnalysis(graph, curFunc, dagnerousness)) {
+            return dagnerousness;
         }
-        return dangerousness;
+
+        List<Function> calleeFunction = getCallee(graph, curFunc);
+        Map<Long, CrashPoint> crashPointToFuncAddr = new HashMap<>();
+
+        Dangerousness dangerousness_g = Dangerousness.NE;
+        dangerousness_g = glovalVariableAnalysis(curFunc, calleeFunction, crashPointToFuncAddr);
+
+        Dangerousness dangerousness_f = Dangerousness.NE;
+
+        for (Function callee : calleeFunction) {
+
+            String calleeAddressHexString = "0x" + callee.getAddress().toHexString();
+            Map<Long, CrashPoint> parseCrashFiles = CrashFileScanner.parseCrashFiles(null, module,
+                    calleeAddressHexString, true);
+            crashPointToFuncAddr.putAll(parseCrashFiles);
+
+            Dangerousness dangerousness_f_temp = getCalleesDangerousness(cihm, crashPointToFuncAddr, callee);
+
+            functionDangerousnessDynamicTable.put(callee.getAddress().toLong(), dangerousness_f);
+            dangerousness_f = getMoreDangerousOne(dangerousness_f_temp, dangerousness_f);
+
+        }
+
+        dagnerousness = getMoreDangerousOne(dangerousness_f, dangerousness_g);
+        return dagnerousness;
     }
 
     private Dangerousness getCalleesDangerousness(CountInstructionHashMap cihm,
             Map<Long, CrashPoint> crashPointToFuncAddr, Function callee) throws MLocException {
-        
-        
+
         Dangerousness dangerousness_f;
-        dangerousness_f = runSingleCrash(InterProcedureMode.FUNCTIONAnalysis, crashPointToFuncAddr, cihm, callee.getAddress().toLong());
-        
-        
+        dangerousness_f = runSingleCrash(InterProcedureMode.FUNCTIONAnalysis, crashPointToFuncAddr, cihm,
+                callee.getAddress().toLong());
+
         return dangerousness_f;
     }
 
     private Dangerousness glovalVariableAnalysis(Function curFunc, List<Function> calleeFunctions,
             Map<Long, CrashPoint> crashPointToFuncAddr) {
-        
+
         GlobalVariableAnalysis globalVariableAnalysis = new GlobalVariableAnalysis(module, curFunc);
-        if(globalVariableAnalysis.dontUseGlobalVariable())
-        {
+        if (globalVariableAnalysis.dontUseGlobalVariable()) {
             return Dangerousness.NE;
-        }        
-        else
-        {
-            for(Function calleeFunction : calleeFunctions )
-            {
-                
-                //Function curFunc = ModuleHelpers.getFunction(module,  crashPointToFuncAddr.get(crashPointAddress).getFuncAddr());
-                GlobalVariableAnalysis globalVariableAnalysis_callee = new GlobalVariableAnalysis(module, calleeFunction);
-                if(!globalVariableAnalysis_callee.dontUseGlobalVariable() && globalVariableAnalysis.hasSameGlobalVaraible(globalVariableAnalysis_callee))
-                {
+        } else {
+            for (Function calleeFunction : calleeFunctions) {
+
+                // Function curFunc = ModuleHelpers.getFunction(module,
+                // crashPointToFuncAddr.get(crashPointAddress).getFuncAddr());
+                GlobalVariableAnalysis globalVariableAnalysis_callee = new GlobalVariableAnalysis(module,
+                        calleeFunction);
+                if (!globalVariableAnalysis_callee.dontUseGlobalVariable()
+                        && globalVariableAnalysis.hasSameGlobalVaraible(globalVariableAnalysis_callee)) {
                     return Dangerousness.PE;
-                }               
+                }
             }
         }
         return Dangerousness.NE;
@@ -400,30 +373,27 @@ public class AnalysisRunner {
 
     private boolean dontHaveToInterProcedureAnalysis(ILatticeGraph<InstructionGraphNode> graph, Function curFunc,
             Dangerousness dagnerousness) {
-        return  !hasFunctionCalls(graph, curFunc);
+        return !hasFunctionCalls(graph, curFunc);
     }
 
     private Dangerousness getMoreDangerousOne(Dangerousness dagnerousness_1, Dangerousness dagnerousness_2) {
-        return dagnerousness_1.getDangerous() > dagnerousness_2.getDangerous() ? dagnerousness_1 :  dagnerousness_2;
-    }    
+        return dagnerousness_1.getDangerous() > dagnerousness_2.getDangerous() ? dagnerousness_1 : dagnerousness_2;
+    }
 
-    private  List<Function> getCallee(ILatticeGraph<InstructionGraphNode> graph, Function curFunc) {
-        
+    private List<Function> getCallee(ILatticeGraph<InstructionGraphNode> graph, Function curFunc) {
+
         List<Function> callees = new ArrayList<Function>();
-        
+
         List<FunctionEdge> edges = module.getCallgraph().getEdges();
-        
-        for(FunctionEdge edge : edges)
-        {
-            if(edge.getSource().getFunction().equals(curFunc))
-            {
+
+        for (FunctionEdge edge : edges) {
+            if (edge.getSource().getFunction().equals(curFunc)) {
                 callees.add(edge.getTarget().getFunction());
             }
         }
-        
+
         return callees;
     }
-
 
     private void makeView(Map<Long, CrashPoint> crashPointToFuncAddr, int viewIndex, Long crashPointAddress,
             Function curFunc, TaintSink taintSink) {
@@ -496,7 +466,7 @@ public class AnalysisRunner {
         } catch (CouldntLoadDataException e1) {
             e1.printStackTrace();
         } catch (Exception e1) {
-            System.out.println("dubugging " );
+            System.out.println("dubugging ");
         }
 
         Instruction crashInst = ReilInstructionResolve.findNativeInstruction(curFunc, crashPointAddress);
@@ -519,12 +489,11 @@ public class AnalysisRunner {
         e_cnt = 0;
         pe_cnt = 0;
         ne_cnt = 0;
-        
-        
+
         FileOutputStream output;
         try {
             String moduleName = module.getName();
-            output = new FileOutputStream("d:/"+moduleName+ "_" +analysisVersion+ ".txt");
+            output = new FileOutputStream("d:/" + moduleName + "_" + analysisVersion + ".txt");
 
             for (Long addr : crashFilteringResult.keySet()) {
                 String outputStr = "0x" + Long.toHexString(addr) + "  :  " + crashFilteringResult.get(addr) + "\r\n";
@@ -538,20 +507,22 @@ public class AnalysisRunner {
                     ne_cnt++;
 
             }
-            
-            String outputString = "\r\n" + "E : "+ e_cnt + "\r\n";
-            outputString += "PE : "+ pe_cnt + "\r\n";
-            outputString += "NE : "+ ne_cnt + "\r\n";            
-            
-            if(!interProcedureAnalysisCheck){   outputString += "\r\ncall : "+ ne_call_cnt + "(ne --> pe)"+"\r\n"; }            
-            
-            outputString += "escapable: "+ escapableAnalysisCount + "\r\n";
+
+            String outputString = "\r\n" + "E : " + e_cnt + "\r\n";
+            outputString += "PE : " + pe_cnt + "\r\n";
+            outputString += "NE : " + ne_cnt + "\r\n";
+
+            if (!interProcedureAnalysisCheck) {
+                outputString += "\r\ncall : " + ne_call_cnt + "(ne --> pe)" + "\r\n";
+            }
+
+            outputString += "escapable: " + escapableAnalysisCount + "\r\n";
             outputString = concatPathCountString(outputString);
-            
-            outputString += "total time : "+ totalTime + "\r\n";
-            
+
+            outputString += "total time : " + totalTime + "\r\n";
+
             output.write(outputString.getBytes());
-            
+
             output.close();
 
         } catch (FileNotFoundException e) {
@@ -585,26 +556,22 @@ public class AnalysisRunner {
     }
 
     private Map<Long, CrashPoint> findFunctionFromCrashPointAddr() {
-        Map<Long, CrashPoint> crashPointToFuncAddr = new HashMap<Long, CrashPoint>();        
-        
-        
-        if(singleCrashCheck)
-        {
+        Map<Long, CrashPoint> crashPointToFuncAddr = new HashMap<Long, CrashPoint>();
+
+        if (singleCrashCheck) {
             crashPointToFuncAddr.putAll(CrashFileScanner.parseCrashFiles(null, module, crashAddr, singleCrashCheck));
             return crashPointToFuncAddr;
         }
-        
-        
-        
+
         File[] subDirs;
         if (crashFolder != null && crashFolder.isDirectory()) {
             subDirs = crashFolder.listFiles();
-            LogConsole.log("Folder count: " + Integer.toString(subDirs.length) + "\n");            
-            
+            LogConsole.log("Folder count: " + Integer.toString(subDirs.length) + "\n");
+
             crashPointToFuncAddr.putAll(CrashFileScanner.parseCrashFiles(subDirs, module, crashAddr, singleCrashCheck));
             LogConsole.log("path   : \n");
             LogConsole.log("filter : \n");
-            
+
         }
         return crashPointToFuncAddr;
     }
@@ -620,8 +587,7 @@ public class AnalysisRunner {
         }
 
         return false;
-    }    
-    
+    }
 
     private IStateVector<InstructionGraphNode, MLocLatticeElement> memoryAnalysis(
             ILatticeGraph<InstructionGraphNode> graph, Function curFunc,
