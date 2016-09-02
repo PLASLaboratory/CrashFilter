@@ -1,15 +1,12 @@
 package helper;
 
 public enum InterProcedureMode {
-    
+
     NORMAL(0), FUNCTIONAnalysis(1), GVAnalysis(2);
-    
-    
-    
+
     private int modeNumber;
-    
-    InterProcedureMode(int modeNumber)
-    {
+
+    InterProcedureMode(int modeNumber) {
         this.setModeNumber(modeNumber);
     }
 
@@ -20,6 +17,5 @@ public enum InterProcedureMode {
     public void setModeNumber(int modeNumber) {
         this.modeNumber = modeNumber;
     }
-    
-    
+
 }

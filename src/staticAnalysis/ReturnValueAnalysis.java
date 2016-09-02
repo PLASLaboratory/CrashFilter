@@ -27,15 +27,17 @@ public class ReturnValueAnalysis implements TaintSink {
     private Map<DefUseChain.DefUseNode, List<DefUseChain.DefUseNode>> taintedReilPaths = new HashMap<DefUseChain.DefUseNode, List<DefUseChain.DefUseNode>>();
     private Map<Instruction, List<Instruction>> taintedArmPaths = new HashMap<Instruction, List<Instruction>>();
 
+    private Dangerousness dnagerousness = Dangerousness.NE;
 
-    private Dangerousness dnagerousness= Dangerousness.NE;
     public Dangerousness getDnagerousness() {
         return dnagerousness;
     }
 
     private ILatticeGraph<InstructionGraphNode> graph;
 
-    public ReturnValueAnalysis(List<DefUseChain.DefUseGraph> duGraphs, Function func, Map<Long, Dangerousness> crashFilteringResult, IStateVector<InstructionGraphNode, RDLatticeElement> RDResult, ILatticeGraph<InstructionGraphNode> graph) {
+    public ReturnValueAnalysis(List<DefUseChain.DefUseGraph> duGraphs, Function func,
+            Map<Long, Dangerousness> crashFilteringResult,
+            IStateVector<InstructionGraphNode, RDLatticeElement> RDResult, ILatticeGraph<InstructionGraphNode> graph) {
         this.duGraphs = duGraphs;
         this.func = func;
         this.RDResult = RDResult;
@@ -57,8 +59,6 @@ public class ReturnValueAnalysis implements TaintSink {
         return inst;
     }
 
-
-
     public boolean isTaintSink() {
         boolean isTaintSink = false;
 
@@ -73,14 +73,13 @@ public class ReturnValueAnalysis implements TaintSink {
         }
 
         InstructionGraphNode lastInstruction = getLastInstruction(func);
-        
+
         RDLatticeElement rdLatticeElement = RDResult.getState(lastInstruction);
-        if(rdLatticeElement == null)
-        {
+        if (rdLatticeElement == null) {
             System.out.println("RDLatticeElement is null");
             System.exit(-1);
         }
-        
+
         return isReachableToLastInstruction(inst, rdLatticeElement);
     }
 
@@ -90,11 +89,9 @@ public class ReturnValueAnalysis implements TaintSink {
 
     private InstructionGraphNode getLastInstruction(Function func) {
 
-      
         InstructionGraphNode lastInst = null;
         for (InstructionGraphNode inst : graph.getNodes()) {
-            if( inst.getInstruction().getAddress().toLong() % 0x100 == 0)
-            {
+            if (inst.getInstruction().getAddress().toLong() % 0x100 == 0) {
                 lastInst = inst;
             }
         }
@@ -102,7 +99,6 @@ public class ReturnValueAnalysis implements TaintSink {
         return lastInst;
 
     }
-
 
     private boolean isRetrunValueTainted() {
 
@@ -115,12 +111,11 @@ public class ReturnValueAnalysis implements TaintSink {
     }
 
     private boolean checkTaintedValue(DefUseChain.DefUseNode node) {
-        
-        
+
         ReilInstruction inst = node.getInst().getInstruction();
         InstructionGraphNode lastInstruction = getLastInstruction(func);
-        
-        if (inst.equals(lastInstruction)) {           
+
+        if (inst.equals(lastInstruction)) {
             dnagerousness = Dangerousness.PE;
             return true;
         }
@@ -138,7 +133,6 @@ public class ReturnValueAnalysis implements TaintSink {
         }
     }
 
-
     private void searchTaintRetrunValueDFS(Stack<DefUseChain.DefUseNode> stackDFS,
             Set<DefUseChain.DefUseNode> visitedNode, DefUseChain.DefUseNode duNode) {
 
@@ -149,9 +143,8 @@ public class ReturnValueAnalysis implements TaintSink {
             List<DefUseChain.DefUseNode> exploitPath = new ArrayList<DefUseChain.DefUseNode>();
             exploitPath.addAll(stackDFS);
             taintedReilPaths.put(duNode, exploitPath);
-            
-            
-            //printTaintedReilPaths();
+
+            // printTaintedReilPaths();
         }
 
         // children iteration
@@ -167,7 +160,7 @@ public class ReturnValueAnalysis implements TaintSink {
             }
         }
     }
- 
+
     @Override
     public int getTotal_e_count() {
         return 0;

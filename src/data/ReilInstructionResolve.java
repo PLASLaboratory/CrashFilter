@@ -43,7 +43,7 @@ public class ReilInstructionResolve {
 		instStringToInstValue.put("unkn", ReilInstIndex.UNKNOWN);
 		instStringToInstValue.put("xor", ReilInstIndex.XOR);
 	}
-
+//TODO do something using this!!!
 	public static List<ReilOperand> resolveReilInstructionSrc(
 			InstructionGraphNode inst) {
 		List<ReilOperand> src = new ArrayList<ReilOperand>();

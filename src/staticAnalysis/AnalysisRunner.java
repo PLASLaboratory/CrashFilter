@@ -87,7 +87,6 @@ public class AnalysisRunner {
         this.crashAddr = crashAddr;
         decodeOptionCode(optionCode);
     }
-    
 
     private void decodeOptionCode(int code) {
         singleCrashCheck = ((code & 0x1) == 0x1);
@@ -196,8 +195,6 @@ public class AnalysisRunner {
                 du);
 
         ExploitableAnalysis exploitableAnalysis = new ExploitableAnalysis(du.getDuGraphs(), curFunc, crashPointAddress);
-        ReturnValueAnalysis returnValueAnalysis = new ReturnValueAnalysis(du.getDuGraphs(), curFunc,
-                crashFilteringResult, RDResult, graph);
 
         switch (interProcedureAnalysisMode) {
         case NORMAL:
@@ -224,11 +221,15 @@ public class AnalysisRunner {
             break;
 
         case FUNCTIONAnalysis:
+            ReturnValueAnalysis returnValueAnalysis = new ReturnValueAnalysis(du.getDuGraphs(), curFunc,
+                    crashFilteringResult, RDResult, graph);
+
             if (returnValueAnalysis.isTaintSink() || exploitableAnalysis.isTaintSink()) {
                 dagnerousness = getMoreDangerousOne(returnValueAnalysis.getDnagerousness(),
                         exploitableAnalysis.getDangerousness());
                 makeView(crashPointToFuncAddr, viewIndex, crashPointAddress, curFunc, returnValueAnalysis);
             }
+
             break;
         case GVAnalysis:
             break;
