@@ -14,6 +14,8 @@ import com.google.security.zynamics.binnavi.API.reil.ReilOperand;
 import com.google.security.zynamics.binnavi.API.reil.mono.ILatticeGraph;
 import com.google.security.zynamics.binnavi.API.reil.mono.InstructionGraphNode;
 
+import staticAnalysis.ArgumentScanner;
+
 public class CrashSourceAdder {
 
     public static Map<Long, InstructionGraphNode> getSrcNAddress(ILatticeGraph<InstructionGraphNode> graph,
@@ -68,13 +70,17 @@ public class CrashSourceAdder {
             InterProcedureMode interProcedureAnalysisMode, VariableFinder vf) {
 
         List<InstructionGraphNode> insts = new ArrayList<>();
+        
+        ArgumentScanner argumentScanner = new ArgumentScanner();
 
         switch (interProcedureAnalysisMode) {
         case NORMAL:
             insts.add(getCrashPointSrcInstruction(graph, crashAddr));
             return insts;
         case FUNCTIONAnalysis:
-            return getArgumentInstruction(graph, vf);
+            insts.addAll(getArgumentInstruction(graph, vf));
+            
+            return insts;
 
         case GVAnalysis:
             return null;
