@@ -6,12 +6,12 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.StringTokenizer;
 
+import com.google.security.zynamics.binnavi.API.disassembly.Address;
 import com.google.security.zynamics.binnavi.API.disassembly.CouldntLoadDataException;
 import com.google.security.zynamics.binnavi.API.disassembly.CouldntSaveDataException;
 import com.google.security.zynamics.binnavi.API.disassembly.Function;
@@ -29,6 +29,7 @@ import com.google.security.zynamics.binnavi.API.reil.ReilBlock;
 import com.google.security.zynamics.binnavi.API.reil.ReilFunction;
 import com.google.security.zynamics.binnavi.API.reil.ReilHelpers;
 import com.google.security.zynamics.binnavi.API.reil.ReilInstruction;
+import com.google.security.zynamics.binnavi.API.reil.ReilOperand;
 import com.google.security.zynamics.binnavi.API.reil.mono.ILatticeGraph;
 import com.google.security.zynamics.binnavi.API.reil.mono.IStateVector;
 import com.google.security.zynamics.binnavi.API.reil.mono.InstructionGraph;
@@ -121,15 +122,28 @@ public class AnalysisRunner {
 
     }
 
-    void runAnalysis(InterProcedureMode interProcedureAnalysisMode) throws MLocException {
+    void runAnalysis(InterProcedureMode interProcedureAnalysisMode) throws MLocException, InternalTranslationException {
 
         Map<Long, CrashPoint> crashPointToFuncAddr = findFunctionFromCrashPointAddr();
         CountInstructionHashMap cihm = new CountInstructionHashMap();
+        
 
         for (Long crashPointAddress : crashPointToFuncAddr.keySet()) {
+            
+            Function curFunc = ModuleHelpers.getFunction(module, crashPointToFuncAddr.get(crashPointAddress).getFuncAddr());
+            Set<Map<Address, ReilOperand>> scannedArgument = ArgumentScanner.ArgumentScan(curFunc);
+            ArgumentScanner.print(scannedArgument);
+            
+//            Dangerousness dangerousness = runSingleCrash(interProcedureAnalysisMode, crashPointToFuncAddr, cihm, crashPointAddress);
+//            crashFilteringResult.put(crashPointAddress, dangerousness);
 
-            Dangerousness dangerousness = runSingleCrash(interProcedureAnalysisMode, crashPointToFuncAddr, cihm,
-                    crashPointAddress);
+        }
+        
+        
+/*
+        for (Long crashPointAddress : crashPointToFuncAddr.keySet()) {
+
+            Dangerousness dangerousness = runSingleCrash(interProcedureAnalysisMode, crashPointToFuncAddr, cihm, crashPointAddress);
             crashFilteringResult.put(crashPointAddress, dangerousness);
 
         }
@@ -140,6 +154,8 @@ public class AnalysisRunner {
         printExploitableCount(e_cnt, pe_cnt, ne_cnt);
         printExploitablePathCount();
         // System.out.println("call Count : " + callCounter);
+        
+       */ 
         LogConsole.log("total time : " + totalTime + "\n");
     }
 

@@ -5,6 +5,7 @@ import java.io.File;
 import com.google.security.zynamics.binnavi.API.disassembly.Module;
 import com.google.security.zynamics.binnavi.API.helpers.IProgressThread;
 import com.google.security.zynamics.binnavi.API.plugins.PluginInterface;
+import com.google.security.zynamics.binnavi.API.reil.InternalTranslationException;
 
 import crashfilter.va.memlocations.MLocException;
 import helper.InterProcedureMode;
@@ -20,7 +21,7 @@ public class AnalysisStartThread implements IProgressThread {
     }
 
     @Override
-    public void run() throws MLocException {
+    public void run() throws MLocException, InternalTranslationException {
         analysisRunner.runAnalysis(InterProcedureMode.NORMAL);
     }
 
