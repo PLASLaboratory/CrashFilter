@@ -14,8 +14,6 @@ import com.google.security.zynamics.binnavi.API.reil.ReilOperand;
 import com.google.security.zynamics.binnavi.API.reil.mono.ILatticeGraph;
 import com.google.security.zynamics.binnavi.API.reil.mono.InstructionGraphNode;
 
-import staticAnalysis.ArgumentScanner;
-
 public class CrashSourceAdder {
 
     public static Map<Long, InstructionGraphNode> getSrcNAddress(ILatticeGraph<InstructionGraphNode> graph,

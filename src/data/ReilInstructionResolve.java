@@ -311,18 +311,49 @@ public class ReilInstructionResolve {
     public static Instruction findNativeInstruction(Function func, Address address) {
 
         if (func.isLoaded()) {
-            for (BasicBlock bb : func.getGraph().getNodes()) {
-                for (Instruction inst : bb.getInstructions()) {
-                    if (inst.getAddress().toLong() == address.toLong()) {
+            try {
+                if(!func.isLoaded())    func.load();
+            } catch (Exception e) {
+            } finally {
+            }
+        }
+        
+        for (BasicBlock bb : func.getGraph().getNodes()) {
+            for (Instruction inst : bb.getInstructions()) {
+                if (inst.getAddress().toLong() == address.toLong()) {
 
-                        return inst;
-                    }
+                    return inst;
                 }
             }
         }
+        
 
         return null;
     }
+    
+    public static Instruction findNativeAboutReilInstruction(Function func, Address address) {
+
+        if (func.isLoaded()) {
+            try {
+                if(!func.isLoaded())    func.load();
+            } catch (Exception e) {
+            } finally {
+            }
+        }
+        
+        for (BasicBlock bb : func.getGraph().getNodes()) {
+            for (Instruction inst : bb.getInstructions()) {
+                if (inst.getAddress().toLong() == address.toLong()/0x100) {
+
+                    return inst;
+                }
+            }
+        }
+        
+
+        return null;
+    }
+    
 
     public static ReilInstIndex getKindInst(InstructionGraphNode inst) {
         // If stm, return -1

@@ -29,7 +29,6 @@ import com.google.security.zynamics.binnavi.API.reil.ReilBlock;
 import com.google.security.zynamics.binnavi.API.reil.ReilFunction;
 import com.google.security.zynamics.binnavi.API.reil.ReilHelpers;
 import com.google.security.zynamics.binnavi.API.reil.ReilInstruction;
-import com.google.security.zynamics.binnavi.API.reil.ReilOperand;
 import com.google.security.zynamics.binnavi.API.reil.mono.ILatticeGraph;
 import com.google.security.zynamics.binnavi.API.reil.mono.IStateVector;
 import com.google.security.zynamics.binnavi.API.reil.mono.InstructionGraph;
@@ -41,6 +40,7 @@ import crashfilter.va.memlocations.MLocException;
 import data.CountInstructionHashMap;
 import data.CrashPoint;
 import data.ReilInstructionResolve;
+import helper.ArgumentScanner;
 import helper.CallStackCleaner;
 import helper.CrashFileScanner;
 import helper.CrashSourceAdder;
@@ -130,17 +130,15 @@ public class AnalysisRunner {
 
         for (Long crashPointAddress : crashPointToFuncAddr.keySet()) {
             
-            Function curFunc = ModuleHelpers.getFunction(module, crashPointToFuncAddr.get(crashPointAddress).getFuncAddr());
-            Set<Map<Address, ReilOperand>> scannedArgument = ArgumentScanner.ArgumentScan(curFunc);
-            ArgumentScanner.print(scannedArgument);
+
             
-//            Dangerousness dangerousness = runSingleCrash(interProcedureAnalysisMode, crashPointToFuncAddr, cihm, crashPointAddress);
-//            crashFilteringResult.put(crashPointAddress, dangerousness);
+            Dangerousness dangerousness = runSingleCrash(interProcedureAnalysisMode, crashPointToFuncAddr, cihm, crashPointAddress);
+            crashFilteringResult.put(crashPointAddress, dangerousness);
 
         }
         
         
-/*
+
         for (Long crashPointAddress : crashPointToFuncAddr.keySet()) {
 
             Dangerousness dangerousness = runSingleCrash(interProcedureAnalysisMode, crashPointToFuncAddr, cihm, crashPointAddress);
@@ -155,13 +153,13 @@ public class AnalysisRunner {
         printExploitablePathCount();
         // System.out.println("call Count : " + callCounter);
         
-       */ 
+       
         LogConsole.log("total time : " + totalTime + "\n");
     }
 
     private Dangerousness runSingleCrash(InterProcedureMode interProcedureAnalysisMode,
             Map<Long, CrashPoint> crashPointToFuncAddr, CountInstructionHashMap cihm, Long crashPointAddress)
-                    throws MLocException {
+                    throws MLocException, InternalTranslationException {
 
         Dangerousness dagnerousness = Dangerousness.NE;
         ILatticeGraph<InstructionGraphNode> graph = null;
@@ -188,11 +186,19 @@ public class AnalysisRunner {
         graph = translateFunc2ReilFunc(graph, curReilFunc, crashReilInst, taintSourceInstructionGraphNodes, curFunc,
                 crashInst);
 
-        /************* MLocAnalysis_RTable+Env ********************/
+        /************* Analysis Option Check********************/
         if (memoryAnalysisCheck) {
             mLocResult = memoryAnalysis(graph, curFunc, mLocResult);
         }
+        
+        if (interProcedureAnalysisCheck && interProcedureAnalysisMode == InterProcedureMode.FUNCTIONAnalysis) {
 
+            Set<Map<Address, String>> scannedArgument = ArgumentScanner.ArgumentScan(curFunc);
+
+            System.out.println("0x" + curFunc.getAddress().toHexString());
+            ArgumentScanner.print(scannedArgument);
+        }
+        
         System.out.println("== start EEEEEEEEEEEEEEE ==");
         VariableFinder vf = new VariableFinder(module, curFunc);
         RDAnalysis rda = new RDAnalysis(graph, crashPointAddress, vf);
@@ -323,7 +329,7 @@ public class AnalysisRunner {
 
     private Dangerousness interProcedureAnalysis(CountInstructionHashMap cihm,
             ILatticeGraph<InstructionGraphNode> graph, Function curFunc, ExploitableAnalysis exploitableAnalysis)
-                    throws MLocException {
+                    throws MLocException, InternalTranslationException {
 
         Dangerousness dagnerousness = exploitableAnalysis.getDangerousness();
 
@@ -358,7 +364,7 @@ public class AnalysisRunner {
     }
 
     private Dangerousness getCalleesDangerousness(CountInstructionHashMap cihm,
-            Map<Long, CrashPoint> crashPointToFuncAddr, Function callee) throws MLocException {
+            Map<Long, CrashPoint> crashPointToFuncAddr, Function callee) throws MLocException, InternalTranslationException {
 
         Dangerousness dangerousness_f;
         dangerousness_f = runSingleCrash(InterProcedureMode.FUNCTIONAnalysis, crashPointToFuncAddr, cihm,
