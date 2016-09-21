@@ -37,7 +37,7 @@ public class DefUseChain {
         this.mLocResult = mLocResult;
     }
 
-    public DefUseChain(IStateVector<InstructionGraphNode, RDLatticeElement> rDResult,
+    public DefUseChain(IStateVector<InstructionGraphNode, RDLatticeElement> rDResult,  
             ILatticeGraph<InstructionGraphNode> graph, Long crashPointAddress, boolean doCrashSrcAnalysis) {
         this.RDResult = rDResult;
         this.graph = graph;
