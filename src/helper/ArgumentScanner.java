@@ -25,9 +25,9 @@ import data.ReilInstructionResolve;
 
 public class ArgumentScanner {
 
-    public static Set<Map<Long, InstructionGraphNode>> ArgumentScan(Function function, VariableFinder vf) throws InternalTranslationException {
+    public static Set<Map<Address, String>> ArgumentScan(Function function) throws InternalTranslationException {
 
-        Set<Map<Long, InstructionGraphNode>> registerArguments = new HashSet<>();
+        Set<Map<Address, String>> registerArguments = new HashSet<>();
         Set<String> definedRegister = new HashSet<>();
 
         
@@ -37,7 +37,9 @@ public class ArgumentScanner {
             System.out.println("error - argumentScan() : function is null!!");
             return null;
         }
-                
+        
+        System.out.println("findArgument : 0x"+function.getAddress());
+        
         loadFunction(curFunc);
         ReilFunction curReilFunc = curFunc.getReilCode();
         InstructionGraph graph = InstructionGraph.create(curReilFunc.getGraph());
@@ -45,15 +47,11 @@ public class ArgumentScanner {
         List<InstructionGraphNode> nodes = graph.getNodes();
         for (InstructionGraphNode node : nodes) {
             ReilInstruction reilInst = node.getInstruction();
+            System.out.println("    : "+node.getInstruction());
             // src
             List<ReilOperand> srcs = ReilInstructionResolve.resolveReilInstructionSrc(reilInst);
-            
-            if(isUseWitoutDef(definedRegister, reilInst, srcs, curFunc)){   
-                
-                Map<Long, InstructionGraphNode> registerArgument =  CrashSourceAdder.getSrcNAddress(graph, reilInst.getAddress().toLong()%0x100, InterProcedureMode.NORMAL, vf);
-                registerArguments.add(registerArgument);
-            }
-            
+            registerArguments.addAll(getUseWitoutDef(definedRegister, reilInst, srcs, curFunc));
+
             // dest
             addDefinedRegisters(definedRegister, reilInst);
         }
@@ -85,7 +83,7 @@ public class ArgumentScanner {
         }
     }
 
-    private static boolean isUseWitoutDef(Set<String> definedRegister,
+    private static Set<Map<Address, String>> getUseWitoutDef(Set<String> definedRegister,
             ReilInstruction reilInst, List<ReilOperand> srcs, Function curFunc) {
 
         Set<Map<Address, String>> arguments = new HashSet<>();
@@ -102,16 +100,17 @@ public class ArgumentScanner {
                     continue;
                 }
                 
-                if (useWithOutDef(definedRegister, operand)) {
-                    return true;            
+                if (definedRegister.contains(operand.getValue())) {
+
+                } else {
+                    Map<Address, String> registerArgument = new HashMap<>();
+                    registerArgument.put(reilInst.getAddress(), operand.getValue());
+                    arguments.add(registerArgument);
+
                 }
             }
         }
-        return false;
-    }
-
-    private static boolean useWithOutDef(Set<String> definedRegister, ReilOperand operand) {
-        return definedRegister.contains(operand.getValue());
+        return arguments;
     }
   
     private static boolean canBeArgumentRegister(ReilOperand operand) {
@@ -194,11 +193,11 @@ public class ArgumentScanner {
         return operand_str.charAt(position) <= '9' && operand_str.charAt(position) >= '0';
     }
 
-    public static void print(Set<Map<Long, InstructionGraphNode>> scannedArgument) {
+    public static void print(Set<Map<Address, String>> scannedArgument) {
 
-        for (Map<Long, InstructionGraphNode> map : scannedArgument) {
-            for (Long addr : map.keySet()) {
-                System.out.println("0x" + addr.toHexString(addr) + " : " + map.get(addr));
+        for (Map<Address, String> map : scannedArgument) {
+            for (Address addr : map.keySet()) {
+                System.out.println("0x" + addr.toHexString() + " : " + map.get(addr));
             }
         }
     }

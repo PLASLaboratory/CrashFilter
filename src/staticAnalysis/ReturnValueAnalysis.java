@@ -52,7 +52,12 @@ public class ReturnValueAnalysis implements TaintSink {
         return taintedReilPaths;
     }
 
+    private Instruction toArmInstruction(DefUseChain.DefUseNode duNode) {
+        Instruction inst = ReilInstructionResolve.findNativeInstruction(func,
+                ReilHelpers.toNativeAddress(duNode.getInst().getInstruction().getAddress()));
 
+        return inst;
+    }
 
     public boolean isTaintSink() {
         boolean isTaintSink = false;
@@ -62,7 +67,25 @@ public class ReturnValueAnalysis implements TaintSink {
         return isTaintSink;
     }
 
+    private boolean isReachableAtReturn(InstructionGraphNode inst) {
+        if (RDResult == null) {
+            System.out.println("error : RVA- isLastDefOfReturnValue()");
+        }
 
+        InstructionGraphNode lastInstruction = getLastInstruction(func);
+
+        RDLatticeElement rdLatticeElement = RDResult.getState(lastInstruction);
+        if (rdLatticeElement == null) {
+            System.out.println("RDLatticeElement is null");
+            System.exit(-1);
+        }
+
+        return isReachableToLastInstruction(inst, rdLatticeElement);
+    }
+
+    private boolean isReachableToLastInstruction(InstructionGraphNode inst, RDLatticeElement rdLatticeElement) {
+        return rdLatticeElement.getReachableInstList().contains(inst);
+    }
 
     private InstructionGraphNode getLastInstruction(Function func) {
 

@@ -28,16 +28,12 @@ public class RDAnalysis {
     
     
     private Long crashAddr = null;
-    private VariableFinder vf;
+    private VariableFinder vf;;
 
-
-    private Set<Map<Long, InstructionGraphNode>> scannedArgument;;
-
-    public RDAnalysis(ILatticeGraph<InstructionGraphNode> graph, Long crashAddr, VariableFinder vf, Set<Map<Long, InstructionGraphNode>> scannedArgument) {
+    public RDAnalysis(ILatticeGraph<InstructionGraphNode> graph, Long crashAddr, VariableFinder vf) {
         this.graph = graph;
         this.crashAddr = crashAddr;
         this.vf = vf;
-        this.scannedArgument = scannedArgument;
     }
 
 
@@ -170,11 +166,6 @@ public class RDAnalysis {
         Map<Long, InstructionGraphNode> toBeAddedSrcNAddresses = new HashMap<>();
         toBeAddedSrcNAddresses = CrashSourceAdder.getSrcNAddress(graph, crashAddr, analysisMode, vf);
  
-        
-        for(Map<Long, InstructionGraphNode> argument : scannedArgument)
-        {
-            toBeAddedSrcNAddresses.putAll(argument);
-        }
    
         endVector = runRD(startVector, toBeAddedSrcNAddresses);
         return endVector;

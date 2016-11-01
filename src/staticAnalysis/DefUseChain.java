@@ -5,9 +5,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-
-import org.python.apache.xerces.impl.dv.xs.DurationDV;
-
 import java.util.Set;
 
 import com.google.security.zynamics.binnavi.API.gui.LogConsole;
@@ -18,7 +15,6 @@ import com.google.security.zynamics.binnavi.API.reil.mono.IStateVector;
 import com.google.security.zynamics.binnavi.API.reil.mono.InstructionGraphNode;
 
 import crashfilter.va.MLocAnalysis.MLocLatticeElement;
-import crashfilter.va.MLocAnalysis.env.EnvLatticeElement;
 import crashfilter.va.memlocations.MLocException;
 import data.ReilInstructionResolve;
 import helper.CrashSourceAdder;
@@ -37,7 +33,7 @@ public class DefUseChain {
         this.mLocResult = mLocResult;
     }
 
-    public DefUseChain(IStateVector<InstructionGraphNode, RDLatticeElement> rDResult,  
+    public DefUseChain(IStateVector<InstructionGraphNode, RDLatticeElement> rDResult,
             ILatticeGraph<InstructionGraphNode> graph, Long crashPointAddress, boolean doCrashSrcAnalysis) {
         this.RDResult = rDResult;
         this.graph = graph;

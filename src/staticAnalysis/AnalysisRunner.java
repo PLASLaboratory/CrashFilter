@@ -187,24 +187,21 @@ public class AnalysisRunner {
                 crashInst);
 
         /************* Analysis Option Check********************/
-        
-        VariableFinder vf = new VariableFinder(module, curFunc);
-        
         if (memoryAnalysisCheck) {
             mLocResult = memoryAnalysis(graph, curFunc, mLocResult);
         }
         
-        Set<Map<Long, InstructionGraphNode>> scannedArgument = null;
         if (interProcedureAnalysisCheck && interProcedureAnalysisMode == InterProcedureMode.FUNCTIONAnalysis) {
-            scannedArgument = ArgumentScanner.ArgumentScan(curFunc,vf);
+
+            Set<Map<Address, String>> scannedArgument = ArgumentScanner.ArgumentScan(curFunc);
+
             System.out.println("0x" + curFunc.getAddress().toHexString());
             ArgumentScanner.print(scannedArgument);
         }
         
-        
         System.out.println("== start EEEEEEEEEEEEEEE ==");
-        
-        RDAnalysis rda = new RDAnalysis(graph, crashPointAddress, vf, scannedArgument);
+        VariableFinder vf = new VariableFinder(module, curFunc);
+        RDAnalysis rda = new RDAnalysis(graph, crashPointAddress, vf);
 
         RDResult = rda.runRDAnalysis(interProcedureAnalysisMode);
         // rda.printRD(RDResult);
