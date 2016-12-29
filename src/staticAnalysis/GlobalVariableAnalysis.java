@@ -12,6 +12,10 @@ public class GlobalVariableAnalysis {
     private VariableFinder variableFinder;
     private Set<String> usedGlobalVariables;
     
+    public Set<String> getUsedGlobalVariables() {
+        return usedGlobalVariables;
+    }
+
     public GlobalVariableAnalysis(Module module, Function function) {
         
         currentFunction = function;

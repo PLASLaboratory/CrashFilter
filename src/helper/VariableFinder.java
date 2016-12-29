@@ -197,7 +197,7 @@ public class VariableFinder {
         for (String operand : usedOperands) {
             for (GlobalVariable globalVariable : globalVariables) {
                 if (operand.contains(globalVariable.getName())) {
-                    //System.out.println("finded global variable : " + globalVariable.getName());
+                    System.out.println("global : "+globalVariable.getName());
                     usedGlobalVariables.add(operand);
                 }
             }

@@ -47,7 +47,6 @@ public class ArgumentScanner {
         List<InstructionGraphNode> nodes = graph.getNodes();
         for (InstructionGraphNode node : nodes) {
             ReilInstruction reilInst = node.getInstruction();
-            System.out.println("    : "+node.getInstruction());
             // src
             List<ReilOperand> srcs = ReilInstructionResolve.resolveReilInstructionSrc(reilInst);
             registerArguments.addAll(getUseWitoutDef(definedRegister, reilInst, srcs, curFunc));
