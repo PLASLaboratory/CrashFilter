@@ -6,10 +6,11 @@ import com.google.security.zynamics.binnavi.API.reil.mono.ILatticeGraph;
 import com.google.security.zynamics.binnavi.API.reil.mono.IStateVector;
 import com.google.security.zynamics.binnavi.API.reil.mono.InstructionGraphNode;
 import plugin.java.com.plas.crashfilter.analysis.helper.Dangerousness;
+import plugin.java.com.plas.crashfilter.analysis.helper.TaintSink;
 
 import java.util.*;
 
-public class EscapeAnalysis implements TaintSink{
+public class EscapeAnalysis implements TaintSink {
     private IStateVector<InstructionGraphNode, RDAnalysis.RDLatticeElement> RDResult;
     private List<DefUseChain.DefUseGraph> duGraphs;
     private Function func;
@@ -143,7 +144,7 @@ public class EscapeAnalysis implements TaintSink{
         return 0;
     }
 
-    
+
     public int getTotal_pe_count() {
         return 0;
     }
