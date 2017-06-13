@@ -1,4 +1,4 @@
 Manifest-Version: 1.0
 Class-Path: BinNavi.jar StandardPlugins.jar
-Main-Class: helper.plugin.PluginLoader
+Main-Class: plugin.java.com.plas.crashfilter.ui.PluginLoader
 
