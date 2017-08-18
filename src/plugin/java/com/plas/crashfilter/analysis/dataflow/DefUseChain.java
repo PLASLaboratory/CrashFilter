@@ -1,4 +1,4 @@
-package plugin.java.com.plas.crashfilter.analysis;
+package plugin.java.com.plas.crashfilter.analysis.dataflow;
 
 import com.google.security.zynamics.binnavi.API.gui.LogConsole;
 import com.google.security.zynamics.binnavi.API.reil.ReilHelpers;
@@ -6,6 +6,7 @@ import com.google.security.zynamics.binnavi.API.reil.ReilOperand;
 import com.google.security.zynamics.binnavi.API.reil.mono.ILatticeGraph;
 import com.google.security.zynamics.binnavi.API.reil.mono.IStateVector;
 import com.google.security.zynamics.binnavi.API.reil.mono.InstructionGraphNode;
+import plugin.java.com.plas.crashfilter.analysis.MemoryChecker;
 import plugin.java.com.plas.crashfilter.analysis.helper.CrashSourceAdder;
 import plugin.java.com.plas.crashfilter.analysis.memory.MLocLatticeElement;
 import plugin.java.com.plas.crashfilter.analysis.memory.mloc.MLocException;
@@ -16,7 +17,7 @@ import java.util.Map.Entry;
 
 public class DefUseChain {
     private Map<InstructionGraphNode, List<InstructionGraphNode>> defUseChains = new HashMap<InstructionGraphNode, List<InstructionGraphNode>>();
-    private IStateVector<InstructionGraphNode, RDAnalysis.RDLatticeElement> RDResult;
+    private IStateVector<InstructionGraphNode, DefLatticeElement> RDResult;
     private ILatticeGraph<InstructionGraphNode> graph;
     private List<DefUseGraph> duGraphs = new ArrayList<DefUseGraph>();
     private IStateVector<InstructionGraphNode, MLocLatticeElement> mLocResult;
@@ -27,7 +28,7 @@ public class DefUseChain {
         this.mLocResult = mLocResult;
     }
 
-    public DefUseChain(IStateVector<InstructionGraphNode, RDAnalysis.RDLatticeElement> rDResult,
+    public DefUseChain(IStateVector<InstructionGraphNode, DefLatticeElement> rDResult,
             ILatticeGraph<InstructionGraphNode> graph, Long crashPointAddress, boolean doCrashSrcAnalysis) {
         this.RDResult = rDResult;
         this.graph = graph;
@@ -139,7 +140,7 @@ public class DefUseChain {
 
             for (InstructionGraphNode use : graph.getNodes()) {
 
-                Set<InstructionGraphNode> reachableInstList = RDResult.getState(use).getReachableInstList();
+                Set<InstructionGraphNode> reachableInstList = RDResult.getState(use).getInstList();
                 boolean rdContain = reachableInstList.contains(def);
 
                 for (InstructionGraphNode node : reachableInstList) {

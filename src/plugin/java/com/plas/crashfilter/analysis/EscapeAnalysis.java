@@ -5,13 +5,15 @@ import com.google.security.zynamics.binnavi.API.disassembly.Instruction;
 import com.google.security.zynamics.binnavi.API.reil.mono.ILatticeGraph;
 import com.google.security.zynamics.binnavi.API.reil.mono.IStateVector;
 import com.google.security.zynamics.binnavi.API.reil.mono.InstructionGraphNode;
+import plugin.java.com.plas.crashfilter.analysis.dataflow.DefLatticeElement;
+import plugin.java.com.plas.crashfilter.analysis.dataflow.DefUseChain;
 import plugin.java.com.plas.crashfilter.analysis.helper.Dangerousness;
 import plugin.java.com.plas.crashfilter.analysis.helper.TaintSink;
 
 import java.util.*;
 
 public class EscapeAnalysis implements TaintSink {
-    private IStateVector<InstructionGraphNode, RDAnalysis.RDLatticeElement> RDResult;
+    private IStateVector<InstructionGraphNode, DefLatticeElement> RDResult;
     private List<DefUseChain.DefUseGraph> duGraphs;
     private Function func;
     private Map<DefUseChain.DefUseNode, List<DefUseChain.DefUseNode>> taintedReilPaths = new HashMap<DefUseChain.DefUseNode, List<DefUseChain.DefUseNode>>();
@@ -20,7 +22,7 @@ public class EscapeAnalysis implements TaintSink {
 
     private ILatticeGraph<InstructionGraphNode> graph;
 
-    public EscapeAnalysis(List<DefUseChain.DefUseGraph> duGraphs, Function func, Map<Long, Dangerousness> crashFilteringResult, IStateVector<InstructionGraphNode, RDAnalysis.RDLatticeElement> RDResult, ILatticeGraph<InstructionGraphNode> graph) {
+    public EscapeAnalysis(List<DefUseChain.DefUseGraph> duGraphs, Function func, Map<Long, Dangerousness> crashFilteringResult, IStateVector<InstructionGraphNode, DefLatticeElement> RDResult, ILatticeGraph<InstructionGraphNode> graph) {
         this.duGraphs = duGraphs;
         this.func = func;
         this.RDResult = RDResult;
@@ -50,18 +52,18 @@ public class EscapeAnalysis implements TaintSink {
 
         InstructionGraphNode lastInstruction = getLastInstruction(func);
         
-        RDAnalysis.RDLatticeElement rdLatticeElement = RDResult.getState(lastInstruction);
-        if(rdLatticeElement == null)
+        DefLatticeElement defLatticeElement = RDResult.getState(lastInstruction);
+        if(defLatticeElement == null)
         {
-            System.out.println("RDLatticeElement is null");
+            System.out.println("DefLatticeElement is null");
             System.exit(-1);
         }
         
-        return isReachableToLastInstruction(inst, rdLatticeElement);
+        return isReachableToLastInstruction(inst, defLatticeElement);
     }
 
-    private boolean isReachableToLastInstruction(InstructionGraphNode inst, RDAnalysis.RDLatticeElement rdLatticeElement) {
-        return rdLatticeElement.getReachableInstList().contains(inst);
+    private boolean isReachableToLastInstruction(InstructionGraphNode inst, DefLatticeElement defLatticeElement) {
+        return defLatticeElement.getInstList().contains(inst);
     }
 
     private InstructionGraphNode getLastInstruction(Function func) {

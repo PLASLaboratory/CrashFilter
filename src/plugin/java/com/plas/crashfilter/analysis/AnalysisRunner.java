@@ -9,6 +9,10 @@ import com.google.security.zynamics.binnavi.API.reil.mono.ILatticeGraph;
 import com.google.security.zynamics.binnavi.API.reil.mono.IStateVector;
 import com.google.security.zynamics.binnavi.API.reil.mono.InstructionGraph;
 import com.google.security.zynamics.binnavi.API.reil.mono.InstructionGraphNode;
+import plugin.java.com.plas.crashfilter.analysis.dataflow.AvailableDefinition;
+import plugin.java.com.plas.crashfilter.analysis.dataflow.DefLatticeElement;
+import plugin.java.com.plas.crashfilter.analysis.dataflow.DefUseChain;
+import plugin.java.com.plas.crashfilter.analysis.dataflow.ReachingDefinition;
 import plugin.java.com.plas.crashfilter.analysis.helper.*;
 import plugin.java.com.plas.crashfilter.analysis.ipa.*;
 import plugin.java.com.plas.crashfilter.analysis.memory.MLocAnalysis;
@@ -40,6 +44,7 @@ public class AnalysisRunner {
     private boolean crashSrcAnalysisCheck = false;
     private boolean interProcedureAnalysisCheck = false;
     private boolean callCountCheck = false;
+    private boolean availableDefinitionCheck = false;
 
     private Map<Long, Dangerousness> functionDangerousnessDynamicTable = new HashMap<Long, Dangerousness>();
 
@@ -70,12 +75,13 @@ public class AnalysisRunner {
         crashSrcAnalysisCheck = ((code & 0x100) == 0x100);
         callCountCheck = ((code & 0x10000) == 0x10000);
         interProcedureAnalysisCheck = ((code & 0x1000) == 0x1000);
+        availableDefinitionCheck = ((code&0x100000) == 0x100000);
 
         System.out.println("singleCrashCheck  :" + singleCrashCheck);
         System.out.println("crashSrcAnalysisCheck  :" + crashSrcAnalysisCheck);
         System.out.println("memoryAnalysisCheck  :" + memoryAnalysisCheck);
         System.out.println("interProcedureAnalysisCheck  :" + interProcedureAnalysisCheck);
-
+        System.out.println("availableDefinitionCheck :");
         analysisVersion = getAnalysisVersion();
 
     }
@@ -106,7 +112,7 @@ public class AnalysisRunner {
         CountInstructionHashMap cihm = new CountInstructionHashMap();
 
         for (Long crashPointAddress : crashPointToFuncAddr.keySet()) {
-
+            //runSingleCrash를 스레드로 빼내기
             Dangerousness dangerousness = runSingleCrash(interProcedureAnalysisMode, crashPointToFuncAddr, cihm,
                     crashPointAddress);
             crashFilteringResult.put(crashPointAddress, dangerousness);
@@ -135,13 +141,9 @@ public class AnalysisRunner {
             Map<Long, CrashPoint> crashPointToFuncAddr, CountInstructionHashMap cihm, Long crashPointAddress)
                     throws MLocException, InternalTranslationException {
 
-        
-        
-        
-        
         Dangerousness dagnerousness = Dangerousness.NE;
         ILatticeGraph<InstructionGraphNode> graph = null;
-        IStateVector<InstructionGraphNode, RDAnalysis.RDLatticeElement> RDResult = null;
+        IStateVector<InstructionGraphNode, DefLatticeElement> dfResult = null;
         IStateVector<InstructionGraphNode, MLocLatticeElement> mLocResult = null;
 
         LogConsole.log("Parsing File Number : " + crashPointToFuncAddr.size() + "\n\n");
@@ -164,10 +166,6 @@ public class AnalysisRunner {
         graph = translateFunc2ReilFunc(graph, curReilFunc, crashReilInst, taintSourceInstructionGraphNodes, curFunc,
                 crashInst);
 
-        
-
-        
-        
         /************* Analysis Option Check ********************/
         if (memoryAnalysisCheck) {
             mLocResult = memoryAnalysis(graph, curFunc, mLocResult);
@@ -180,17 +178,25 @@ public class AnalysisRunner {
             System.out.println("0x" + curFunc.getAddress().toHexString());
             // ArgumentScanner.print(scannedArgument);
         }
-
-        System.out.println("== start EEEEEEEEEEEEEEE ==");
+        //VariableFinder 인터프로시쥬럴을 할 때만 필요.
+        //normal 할 때는 가비지
         VariableFinder vf = new VariableFinder(module, curFunc);
-        RDAnalysis rda = new RDAnalysis(graph, crashPointAddress, vf);
+        if(availableDefinitionCheck){
+            AvailableDefinition ada = new AvailableDefinition(graph, crashPointAddress, vf);
+            dfResult = ada.runADAnalysis(interProcedureAnalysisMode);
+            LogConsole.log("== end ad analysis ==\n");
+        }
+        else {
+            ReachingDefinition rda = new ReachingDefinition(graph, crashPointAddress, vf);
+            dfResult = rda.runRDAnalysis(interProcedureAnalysisMode);
+            LogConsole.log("== end rd analysis ==\n");
+        }
 
-        RDResult = rda.runRDAnalysis(interProcedureAnalysisMode);
-        // rda.printRD(RDResult);
-        LogConsole.log("== end rd analysis ==\n");
+        // rda.printAD(dfResult);
+
 
         LogConsole.log("==start du analysis  1==\n");
-        DefUseChain du = new DefUseChain(RDResult, graph, crashPointAddress, crashSrcAnalysisCheck);
+        DefUseChain du = new DefUseChain(dfResult, graph, crashPointAddress, crashSrcAnalysisCheck);
         du.setMemoryResult(mLocResult);
         du.defUseChaining();
         LogConsole.log("== end DU analysis ==\n");
@@ -231,7 +237,7 @@ public class AnalysisRunner {
             dagnerousness_global = glovalVariableAnalysis(curFunc, calleeFunction, crashPointToFuncAddr);
             
             ReturnValueAnalysis returnValueAnalysis = new ReturnValueAnalysis(du.getDuGraphs(), curFunc,
-                    crashFilteringResult, RDResult, graph);
+                    crashFilteringResult, dfResult, graph);
 
             if (returnValueAnalysis.isTaintSink() || exploitableAnalysis.isTaintSink()) {
                 dagnerousness = getMoreDangerousOne(returnValueAnalysis.getDnagerousness(),exploitableAnalysis.getDangerousness());
@@ -259,7 +265,7 @@ public class AnalysisRunner {
         // src : returned value
         // sink : return value
 
-        dagnerousness = escapableAnalysis(dagnerousness, graph, RDResult, curFunc, du);
+        dagnerousness = escapableAnalysis(dagnerousness, graph, dfResult, curFunc, du);
 
         e_path_cnt += exploitableAnalysis.getTotal_e_count();
         pe_path_cnt += exploitableAnalysis.getTotal_pe_count();
@@ -278,7 +284,7 @@ public class AnalysisRunner {
     }
 
     private Dangerousness escapableAnalysis(Dangerousness dagnerousness, ILatticeGraph<InstructionGraphNode> graph,
-                                            IStateVector<InstructionGraphNode, RDAnalysis.RDLatticeElement> RDResult, Function curFunc, DefUseChain du) {
+                                            IStateVector<InstructionGraphNode, DefLatticeElement> RDResult, Function curFunc, DefUseChain du) {
         ReturnValueAnalysis escapableAnalysis = new ReturnValueAnalysis(du.getDuGraphs(), curFunc, crashFilteringResult,
                 RDResult, graph);
         if (escapableAnalysis.isTaintSink()) {
@@ -589,7 +595,7 @@ public class AnalysisRunner {
             LogConsole.log("Folder count: " + Integer.toString(subDirs.length) + "\n");
 
             crashPointToFuncAddr.putAll(CrashFileScanner.parseCrashFiles(subDirs, module, crashAddr, singleCrashCheck));
-            LogConsole.log("path   : \n");
+            LogConsole.log("path   : "+subDirs.toString()+"\n");
             LogConsole.log("filter : \n");
 
         }

@@ -24,6 +24,7 @@ public class BinDialog extends JDialog {
 	private File f = null;
 	private String crashAddr = null;					
 	private TextField singleCrashAddrTextfield = new TextField("crashAddr");
+	private Checkbox availableDefinitionCheck = new Checkbox("Available Definition", false);
 	private Checkbox memoryAnalysisCheck = new Checkbox("memoryAnalysis",true);			
 	private Checkbox crashSrcAnalysisCheck = new Checkbox("crashSrcAnalysis",true);	
 	private Checkbox singleCrashCheck = new Checkbox("singleCrash", true); 	
@@ -58,7 +59,7 @@ public class BinDialog extends JDialog {
 		
 		
 		checkerPanel.setLayout(new BoxLayout(checkerPanel, BoxLayout.Y_AXIS));
-		
+		checkerPanel.add(availableDefinitionCheck);
 		checkerPanel.add(crashSrcAnalysisCheck);
 		checkerPanel.add(memoryAnalysisCheck);		
 		checkerPanel.add(callCountCheck);
@@ -67,14 +68,14 @@ public class BinDialog extends JDialog {
 		
 		Panel madeByPanal = new Panel();
 		Label madeBytLabel = new Label("                      CNU_PLAS");
-		Font font = new Font("����ü", Font.PLAIN, 10); 
+		Font font = new Font("D2 Coding", Font.PLAIN, 10);
 		madeBytLabel.setFont(font);
 		madeByPanal.add(madeBytLabel);
 		
 		
 		Panel nameOfProgramPanel = new Panel();
 		Label nameOfProgramtLabel = new Label("CrashFilter");
-		Font f = new Font("����ü", Font.PLAIN, 18); 
+		Font f = new Font("D2 Coding", Font.PLAIN, 18);
 		nameOfProgramtLabel.setFont(f);
 		nameOfProgramPanel.add(nameOfProgramtLabel);
 		
@@ -106,6 +107,7 @@ public class BinDialog extends JDialog {
 		if(crashSrcAnalysisCheck.getState()) code |= 0x100;
 		if(interProcedureAnalysisCheck.getState()) code |= 0x1000;
 		if(callCountCheck.getState()) code |= 0x10000;
+		if(availableDefinitionCheck.getState()) code |=0x100000;
 		return code;
 	}
 	public boolean wasCancelled() {
@@ -148,8 +150,7 @@ public class BinDialog extends JDialog {
 				jd.dispose();
 				AnalysisStartThread analysisStartThread = new AnalysisStartThread(BinDialog.this.p, BinDialog.this.f, BinDialog.this.m ,BinDialog.this.crashAddr, optionalCode);
 				ProgressDialog.show(null, "Analysis...", analysisStartThread);
-				//System.runFinalization();
-				return;
+				//System.runFinalization()
 			}
 			
 		}
