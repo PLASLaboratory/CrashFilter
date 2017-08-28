@@ -118,14 +118,16 @@ public class AnalysisRunner {
             crashFilteringResult.put(crashPointAddress, dangerousness);
 
         }
-
-        for (Long crashPointAddress : crashPointToFuncAddr.keySet()) {
-
-            Dangerousness dangerousness = runSingleCrash(interProcedureAnalysisMode, crashPointToFuncAddr, cihm,
-                    crashPointAddress);
-            crashFilteringResult.put(crashPointAddress, dangerousness);
-
-        }
+        //중복 코드 제거 할 것
+//        for (Long crashPointAddress : crashPointToFuncAddr.keySet()) {
+//
+//            Dangerousness dangerousness = runSingleCrash(interProcedureAnalysisMode, crashPointToFuncAddr, cihm,
+//                    crashPointAddress);
+//            crashFilteringResult.put(crashPointAddress, dangerousness);
+//
+//        }
+        //crash주소 set이 interprocedural에서 바뀌는지 안바뀌는지 확실하지 않아 주석처리로 남겨두지만
+        //단순히 중복코드일 경우, 주석처리도 제거할 것
 
         LogConsole.log(cihm.toString());
 
@@ -234,7 +236,7 @@ public class AnalysisRunner {
         case FUNCTIONAnalysis:
             List<Function> calleeFunction = getCallee(graph, curFunc);
             Dangerousness dagnerousness_global = Dangerousness.NE;
-            dagnerousness_global = glovalVariableAnalysis(curFunc, calleeFunction, crashPointToFuncAddr);
+            dagnerousness_global = glovalVariableAnalysis(curFunc, calleeFunction);
             
             ReturnValueAnalysis returnValueAnalysis = new ReturnValueAnalysis(du.getDuGraphs(), curFunc,
                     crashFilteringResult, dfResult, graph);
@@ -343,7 +345,7 @@ public class AnalysisRunner {
         Map<Long, CrashPoint> crashPointToFuncAddr = new HashMap<Long, CrashPoint>();
 
         Dangerousness dangerousness_g = Dangerousness.NE;
-        dangerousness_g = glovalVariableAnalysis(curFunc, calleeFunction, crashPointToFuncAddr);
+        dangerousness_g = glovalVariableAnalysis(curFunc, calleeFunction);
 
         Dangerousness dangerousness_f = Dangerousness.NE;
 
@@ -376,9 +378,8 @@ public class AnalysisRunner {
         return dangerousness_f;
     }
 
-    private Dangerousness glovalVariableAnalysis(Function curFunc, List<Function> calleeFunctions,
-            Map<Long, CrashPoint> crashPointToFuncAddr) {
-
+    private Dangerousness glovalVariableAnalysis(Function curFunc, List<Function> calleeFunctions) {
+        //remove useless argument
         GlobalVariableAnalysis globalVariableAnalysis = new GlobalVariableAnalysis(module, curFunc);
         if (globalVariableAnalysis.dontUseGlobalVariable()) {
             return Dangerousness.NE;
