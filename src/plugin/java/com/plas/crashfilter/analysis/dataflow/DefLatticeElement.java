@@ -73,7 +73,8 @@ public class DefLatticeElement implements ILatticeElement<DefLatticeElement> {
     public boolean equals(DefLatticeElement rhs) {
         if (rhs.getInstList().containsAll(instList)) {
             if (instList.size() == rhs.getInstList().size()) {
-                return true;
+                if(killList.size() == rhs.killList.size())
+                    return true;
             }
         }
         return false;

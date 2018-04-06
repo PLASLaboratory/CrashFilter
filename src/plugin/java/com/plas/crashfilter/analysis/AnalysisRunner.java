@@ -118,17 +118,6 @@ public class AnalysisRunner {
             crashFilteringResult.put(crashPointAddress, dangerousness);
 
         }
-        //중복 코드 제거 할 것
-//        for (Long crashPointAddress : crashPointToFuncAddr.keySet()) {
-//
-//            Dangerousness dangerousness = runSingleCrash(interProcedureAnalysisMode, crashPointToFuncAddr, cihm,
-//                    crashPointAddress);
-//            crashFilteringResult.put(crashPointAddress, dangerousness);
-//
-//        }
-        //crash주소 set이 interprocedural에서 바뀌는지 안바뀌는지 확실하지 않아 주석처리로 남겨두지만
-        //단순히 중복코드일 경우, 주석처리도 제거할 것
-
         LogConsole.log(cihm.toString());
 
         countExploitableCrash();
@@ -170,7 +159,7 @@ public class AnalysisRunner {
 
         /************* Analysis Option Check ********************/
         if (memoryAnalysisCheck) {
-            mLocResult = memoryAnalysis(graph, curFunc, mLocResult);
+            mLocResult = memoryAnalysis(graph, curFunc);
         }
 
         if (interProcedureAnalysisCheck && interProcedureAnalysisMode == InterProcedureMode.FUNCTIONAnalysis) {
@@ -184,12 +173,16 @@ public class AnalysisRunner {
         //normal 할 때는 가비지
         VariableFinder vf = new VariableFinder(module, curFunc);
         if(availableDefinitionCheck){
-            AvailableDefinition ada = new AvailableDefinition(graph, crashPointAddress, vf);
+            List<Long> virtualCrashAddrs = new ArrayList<>();
+            virtualCrashAddrs.add(crashPointAddress);
+            AvailableDefinition ada = new AvailableDefinition(graph, virtualCrashAddrs, vf);
             dfResult = ada.runADAnalysis(interProcedureAnalysisMode);
             LogConsole.log("== end ad analysis ==\n");
         }
         else {
-            ReachingDefinition rda = new ReachingDefinition(graph, crashPointAddress, vf);
+            List<Long> crashAddrs = new ArrayList<>();
+            crashAddrs.add(crashPointAddress);
+            ReachingDefinition rda = new ReachingDefinition(graph, crashAddrs, vf);
             dfResult = rda.runRDAnalysis(interProcedureAnalysisMode);
             LogConsole.log("== end rd analysis ==\n");
         }
@@ -257,8 +250,7 @@ public class AnalysisRunner {
             }
 
             break;
-        case GVAnalysis:
-            break;
+
         default:
             break;
         }
@@ -314,6 +306,7 @@ public class AnalysisRunner {
 
         return false;
     }
+
 
     private void crashSrcAnalysis(InterProcedureMode interProcedureAnalysisMode, Long crashPointAddress,
             ILatticeGraph<InstructionGraphNode> graph, List<InstructionGraphNode> taintSourceInstructionGraphNodes,
@@ -467,7 +460,7 @@ public class AnalysisRunner {
                 }
             }
         }
-
+        //Reil 명령어 모두 Crash 처리 해놓으면.. 플래그에 관해서는 괜찮은지..?
         if (curReilFunc != null) {
             graph = InstructionGraph.create(curReilFunc.getGraph()); // API's
                                                                      // structure
@@ -617,8 +610,7 @@ public class AnalysisRunner {
     }
 
     private IStateVector<InstructionGraphNode, MLocLatticeElement> memoryAnalysis(
-            ILatticeGraph<InstructionGraphNode> graph, Function curFunc,
-            IStateVector<InstructionGraphNode, MLocLatticeElement> mLocResult) throws MLocException {
+            ILatticeGraph<InstructionGraphNode> graph, Function curFunc) throws MLocException {
         // TODO Auto-generated method stub
         LogConsole.log("== start locAnalysis analysis ==\n");
 
@@ -631,7 +623,7 @@ public class AnalysisRunner {
         MLocAnalysis mLocAnalysis = new MLocAnalysis(graph, curFunc);
 
         LogConsole.log("== analysis start ==\n");
-        mLocResult = mLocAnalysis.mLocAnalysis();
+        IStateVector<InstructionGraphNode, MLocLatticeElement> mLocResult = mLocAnalysis.mLocAnalysis();
         mLocAnalysis.deleteTempReg(mLocResult);
         mLocAnalysis.deleteBottomSymbol(mLocResult);
         LogConsole.log("== end memoryAnalysis ==\n");

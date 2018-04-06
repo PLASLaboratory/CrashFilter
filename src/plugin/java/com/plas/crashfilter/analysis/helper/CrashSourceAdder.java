@@ -15,16 +15,14 @@ import java.util.*;
 public class CrashSourceAdder {
 
     public static Map<Long, InstructionGraphNode> getSrcNAddress(ILatticeGraph<InstructionGraphNode> graph,
-                                                                 Long crashAddr, InterProcedureMode analysisMode, VariableFinder vf) {
+                                                                 List<Long> crashAddr, InterProcedureMode analysisMode, VariableFinder vf) {
 
         switch (analysisMode) {
         case NORMAL:
-            return getSetOfSrcNAddress(graph, crashAddr, analysisMode);
+            return getSetOfSrcNAddress(graph, crashAddr);
         case FUNCTIONAnalysis:
-            return getSetOfArgumentsNAddress(graph, analysisMode, vf);
-        case GVAnalysis:
-            // TODO
-            return null;
+            return getSetOfArgumentsNAddress(graph, vf);
+
         default:
         }
         System.out.println("error : getSrcNAddress() - It is not correct interprocedure Analysis Mode");
@@ -66,8 +64,6 @@ public class CrashSourceAdder {
             InterProcedureMode interProcedureAnalysisMode, VariableFinder vf) {
 
         List<InstructionGraphNode> insts = new ArrayList<InstructionGraphNode>();
-        
-        ArgumentScanner argumentScanner = new ArgumentScanner();
 
         switch (interProcedureAnalysisMode) {
         case NORMAL:
@@ -78,8 +74,7 @@ public class CrashSourceAdder {
             
             return insts;
 
-        case GVAnalysis:
-            return null;
+
         default:
             return null;
         }
@@ -87,11 +82,12 @@ public class CrashSourceAdder {
 
     private static List<InstructionGraphNode> getArgumentInstruction(ILatticeGraph<InstructionGraphNode> graph,
             VariableFinder vf) {
-
+        //Argument를 use한 native 명령어를 갖고옴
         Set<Instruction> usedArgumentInstructions = vf.getUsedArgumentInstructions();
 
         List<InstructionGraphNode> insts = new ArrayList<InstructionGraphNode>();
 
+        //전체 함수의 REIL명령어를 갖고 옴
         List<InstructionGraphNode> originalList = graph.getNodes();
 
         for (Instruction usedArgumentInst : usedArgumentInstructions) {
@@ -101,6 +97,7 @@ public class CrashSourceAdder {
                 long instAddr = inst.getInstruction().getAddress().toLong();
 
                 if (usedArgumentInstAddr == instAddr / 0x100) {
+
                     insts.add(inst);
                 }
             }
@@ -178,13 +175,13 @@ public class CrashSourceAdder {
         return inst;
     }
 
-    private static Map<Long, InstructionGraphNode> getSetOfArgumentsNAddress(ILatticeGraph<InstructionGraphNode> graph,
-            InterProcedureMode analysisMode, VariableFinder vf) {
-
+    private static Map<Long, InstructionGraphNode> getSetOfArgumentsNAddress(ILatticeGraph<InstructionGraphNode> graph, VariableFinder vf) {
+        //Argument가 쓰인 Native Instruction을 Reil instruction set으로 바꿔줌
         Set<Instruction> usedArgumentInstructions = vf.getUsedArgumentInstructions();
         Map<Long, InstructionGraphNode> toBeAddedSrcNAddress = new HashMap<Long, InstructionGraphNode>();
 
         for (Instruction inst : usedArgumentInstructions) {
+
             Long argumentAddr = inst.getAddress().toLong();
             InstructionGraphNode crashSrcNode = getCrashPointSrcInstruction(graph, argumentAddr);
             long toBeInsertedAddress = getNextReilAddrOfCrash(graph, argumentAddr);
@@ -196,13 +193,14 @@ public class CrashSourceAdder {
     }
 
     private static Map<Long, InstructionGraphNode> getSetOfSrcNAddress(ILatticeGraph<InstructionGraphNode> graph,
-            Long crashAddr, InterProcedureMode analysisMode) {
-
-        InstructionGraphNode crashSrcNode = getCrashPointSrcInstruction(graph, crashAddr);
-        long toBeInsertedAddress = getNextReilAddrOfCrash(graph, crashAddr);
+            List<Long> crashAddrs) {
+        List<InstructionGraphNode> crashSrcNodes = new ArrayList<>();
         Map<Long, InstructionGraphNode> toBeAddedSrcNAddress = new HashMap<Long, InstructionGraphNode>();
-        toBeAddedSrcNAddress.put(toBeInsertedAddress, crashSrcNode);
-
+        for(Long addr: crashAddrs){
+            InstructionGraphNode crashSrcNode = getCrashPointSrcInstruction(graph, addr);
+            long toBeInsertedAddress = getNextReilAddrOfCrash(graph, addr);
+            toBeAddedSrcNAddress.put(toBeInsertedAddress, crashSrcNode);
+        }
         return toBeAddedSrcNAddress;
     }
 }

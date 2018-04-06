@@ -2,7 +2,7 @@ package plugin.java.com.plas.crashfilter.analysis.ipa;
 
 public enum InterProcedureMode {
 
-    NORMAL(0), FUNCTIONAnalysis(1), GVAnalysis(2);
+    NORMAL(0), FUNCTIONAnalysis(1);
 
     private int modeNumber;
 

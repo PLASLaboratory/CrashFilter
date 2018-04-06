@@ -9,8 +9,8 @@
         <module name="CrashFilter" />
       </profile>
     </annotationProcessing>
-    <bytecodeTargetLevel>
-      <module name="CrashFilter" target="1.5" />
+    <bytecodeTargetLevel target="1.8">
+      <module name="CrashFilter" target="1.8" />
     </bytecodeTargetLevel>
   </component>
 </project>

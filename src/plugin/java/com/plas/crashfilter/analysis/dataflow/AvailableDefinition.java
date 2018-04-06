@@ -3,6 +3,7 @@ package plugin.java.com.plas.crashfilter.analysis.dataflow;
 
 import com.google.common.collect.Sets;
 import com.google.security.zynamics.binnavi.API.gui.LogConsole;
+import com.google.security.zynamics.binnavi.API.reil.ReilOperand;
 import com.google.security.zynamics.binnavi.API.reil.mono.*;
 import plugin.java.com.plas.crashfilter.analysis.helper.CrashSourceAdder;
 import plugin.java.com.plas.crashfilter.analysis.helper.VariableFinder;
@@ -12,15 +13,14 @@ import plugin.java.com.plas.crashfilter.util.ReilInstructionResolve;
 
 import java.util.*;
 
+import static plugin.java.com.plas.crashfilter.util.ReilInstructionResolve.resolveReilInstructionDest;
+
 public class AvailableDefinition {
     private ILatticeGraph<InstructionGraphNode> graph;
-
-
-
-    private Long crashAddr = null;
+    private List<Long> crashAddr = null;
     private VariableFinder vf;
-
-    public AvailableDefinition(ILatticeGraph<InstructionGraphNode> graph, Long crashAddr, VariableFinder vf) {
+    private IStateVector<InstructionGraphNode, DefLatticeElement> killSet = new DefaultStateVector<>();
+    public AvailableDefinition(ILatticeGraph<InstructionGraphNode> graph, List<Long> crashAddr, VariableFinder vf) {
         this.graph = graph;
         this.crashAddr = crashAddr;
         this.vf = vf;
@@ -30,11 +30,11 @@ public class AvailableDefinition {
         IStateVector<InstructionGraphNode, DefLatticeElement> defSet = new DefaultStateVector<>();
 
         for(InstructionGraphNode defInst : graph.getNodes()){
-           if(ReilInstructionResolve.isDefinitionInstruction(defInst)){
-               DefLatticeElement state = new DefLatticeElement();
-               state.insertInst(defInst);
-               defSet.setState(defInst, state);
-           }
+            if(ReilInstructionResolve.isDefinitionInstruction(defInst)){
+                DefLatticeElement state = new DefLatticeElement();
+                state.insertInst(defInst);
+                defSet.setState(defInst, state);
+            }
         }
         return defSet;
     }
@@ -49,7 +49,7 @@ public class AvailableDefinition {
 
         // gathering the kill set of each instruction
         // After memory access analysis, we have to use the results.
-    //def collection 지역변수로 받기
+        //def collection 지역변수로 받기
         for (InstructionGraphNode defInst1 : graph.getNodes()) {
             state = new DefLatticeElement();
 
@@ -65,10 +65,11 @@ public class AvailableDefinition {
 
                 // Some time later we will add VSA and have to add some code for
                 // new kill set considering memory
-                if (ReilInstructionResolve.isSameDefinition(defInst1, defInst2)) {
+                if (isKillDefinition(defInst1, defInst2)) {
                     state.insertKill(defInst2);
                 }
             }
+            killSet.setState(defInst1, state);
             startVector.setState(defInst1, state);
         }
         return startVector;
@@ -93,8 +94,8 @@ public class AvailableDefinition {
         LogConsole.log("==========Available Definition analysis start!!!!!!\n");
         boolean changed = true;
         List<InstructionGraphNode> nodes = graph.getNodes();
-        IStateVector<InstructionGraphNode, DefLatticeElement> vector = startVector;
-        IStateVector<InstructionGraphNode, DefLatticeElement> endVector = new DefaultStateVector<InstructionGraphNode, DefLatticeElement>();
+        IStateVector<InstructionGraphNode, DefLatticeElement> beforeVector = startVector;
+        IStateVector<InstructionGraphNode, DefLatticeElement> endVector = vectorClone(startVector);
 
         while (changed) {
             for (InstructionGraphNode node : nodes) {
@@ -104,8 +105,8 @@ public class AvailableDefinition {
                     settingEntry(endVector, node);
                 } else {
                     DefLatticeElement transformedState = new DefLatticeElement();
-                    DefLatticeElement currentState = applyMeetOperation(vector, node, preds, transformedState);
-                    transformState( node, transformedState, currentState);
+                    DefLatticeElement afterMeetOperation = applyMeetOperation(beforeVector, endVector , preds);
+                    transformState(node, transformedState, afterMeetOperation);
 
                     if (isInsertAddress(toBeAddedSrcNAddresses, node)) {
                         InstructionGraphNode srcNode = toBeAddedSrcNAddresses.get(node.getInstruction().getAddress().toLong());
@@ -115,8 +116,8 @@ public class AvailableDefinition {
                     endVector.setState(node, transformedState);
                 }
             }
-            changed = isChanged(vector, endVector);
-            vector = endVector;
+            changed = isChanged(beforeVector, endVector);
+            beforeVector = endVector;
             System.out.println("changed : " + changed);
         }
         return endVector;
@@ -131,11 +132,22 @@ public class AvailableDefinition {
         return !vector.equals(endVector);
     }
 
+    private IStateVector<InstructionGraphNode, DefLatticeElement> vectorClone(IStateVector<InstructionGraphNode, DefLatticeElement> orig){
+        IStateVector<InstructionGraphNode, DefLatticeElement> clone = new DefaultStateVector<>();
+        for(InstructionGraphNode node : this.graph.getNodes()){
+            DefLatticeElement cloneElement = new DefLatticeElement();
+            cloneElement.unionInstList(orig.getState(node).getInstList());
+            clone.setState(node, cloneElement);
+        }
+        return orig;
+    }
+
     private void transformState(InstructionGraphNode node, DefLatticeElement transformedState, DefLatticeElement currentState) {
         //enum으로 flag 정의하고, RD
-        transformedState.removeAllInstList(currentState.getKillList());
+        Set<InstructionGraphNode> killSet = this.killSet.getState(node).getKillList();
+        transformedState.removeAllInstList(killSet);
 
-        if (!(ReilInstructionResolve.resolveReilInstructionDest(node).isEmpty())) {
+        if (!(resolveReilInstructionDest(node).isEmpty())) {
             transformedState.insertInst(node);
         }
 
@@ -146,14 +158,10 @@ public class AvailableDefinition {
         }
     }
 
-    private DefLatticeElement applyMeetOperation(IStateVector<InstructionGraphNode, DefLatticeElement> vector,
-                                                 InstructionGraphNode node, List<InstructionGraphNode> preds, DefLatticeElement transformedState) {
-        DefLatticeElement currentState = vector.getState(node);
-        DefLatticeElement inputElement = intersectPred(vector, preds);
+    private DefLatticeElement applyMeetOperation(IStateVector<InstructionGraphNode, DefLatticeElement> beforeVector, IStateVector<InstructionGraphNode, DefLatticeElement> afterVector, List<InstructionGraphNode> preds) {
 
-
-        transformedState.unionInstList(inputElement.getInstList());
-        return currentState;
+        DefLatticeElement inputElement = intersectPred(beforeVector, preds);
+        return inputElement;
     }
 
 
@@ -188,7 +196,7 @@ public class AvailableDefinition {
         }
     }
     private DefLatticeElement intersectPred(IStateVector<InstructionGraphNode, DefLatticeElement> vector,
-                                        List<InstructionGraphNode> preds) {
+                                            List<InstructionGraphNode> preds) {
         if (hasNoPred(preds)) {
             return null;
         } else if (preds.size() == 1) {
@@ -218,6 +226,39 @@ public class AvailableDefinition {
         return nodes;
     }
 
+    private boolean isKillDefinition(InstructionGraphNode def1, InstructionGraphNode def2){
+        if (ReilInstructionResolve.isStoreToMemory(def1)) {
+            return false;
+        } else if (ReilInstructionResolve.isLoadToRegister(def1)) {
+            if (ReilInstructionResolve.isStoreToMemory(def2)) {
+                return true;
+            }
+            // In case that def2 is load or arithmetic
+            else {
+                for (ReilOperand dest1 : resolveReilInstructionDest(def1)) {
+                    for (ReilOperand dest2 : resolveReilInstructionDest(def2)) {
+                        return dest1.getValue().equals(dest2.getValue());
+                    }
+                }
+            }
+        }
+        // In case of arithmetic
+        else {
+            if (ReilInstructionResolve.isStoreToMemory(def2)) {
+                return false;
+            }
+            // In case that def2 is load or arithmetic
+            else {
+                for (ReilOperand dest1 : resolveReilInstructionDest(def1)) {
+                    for (ReilOperand dest2 : resolveReilInstructionDest(def2)) {
+                        return dest1.getValue().equals(dest2.getValue());
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
     public void printAD(IStateVector<InstructionGraphNode, DefLatticeElement> endVector) {
 
         DefLatticeElement state = null;
