@@ -9,7 +9,8 @@ import java.util.List;
 import java.util.Set;
 
 public class VariableFinder {
-
+    // Argument가 쓰인 곳에 대한 instruction을 다 가지고 있음
+    //dest 또는 src건 상관 없이 def되건 use 되건 사용된 instruction
     private Module module;
     private Function function;
 

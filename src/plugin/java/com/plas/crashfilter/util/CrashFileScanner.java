@@ -1,5 +1,6 @@
 package plugin.java.com.plas.crashfilter.util;
 
+import com.google.security.zynamics.binnavi.API.disassembly.Function;
 import com.google.security.zynamics.binnavi.API.disassembly.FunctionBlock;
 import com.google.security.zynamics.binnavi.API.disassembly.Module;
 import com.google.security.zynamics.binnavi.API.gui.LogConsole;
@@ -16,22 +17,22 @@ public class CrashFileScanner {
             boolean singleCrashCheck) {
 
         if (singleCrashCheck) {
-            return parseSingleCrashFiles(module, crashAddr);
+            return findFunction(module, crashAddr);
         } else {
             return parseMultiCrashFiles(crashFiles, module, crashAddr);
         }
 
     }
 
-    public static Map<Long, CrashPoint> parseSingleCrashFiles(Module module, String crashAddr) {
+    public static Map<Long, CrashPoint> findFunction(Module module, String inputAddress) {
 
         /* �����Է� **/
         Map<Long, CrashPoint> crashPointToFuncAddr = new HashMap<Long, CrashPoint>();
         List<FunctionBlock> fb = module.getCallgraph().getNodes();
         int index = 1;
 
-        Long crashPointAddr = Long.decode(crashAddr);
-        LogConsole.log("	crashAddr :  : " + crashPointAddr + " / " + crashAddr + "\n");
+        Long crashPointAddr = Long.decode(inputAddress);
+        LogConsole.log("	inputAddress :  : " + crashPointAddr + " / " + inputAddress + "\n");
 
         Long funcAddr_before = fb.get(0).getFunction().getAddress().toLong();
         Long funcAddr_now = 0l;

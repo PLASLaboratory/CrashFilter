@@ -18,14 +18,13 @@ import java.util.List;
 public final class CrashFilterPlugin implements IModuleMenuPlugin {
 
 	private PluginInterface m_pluginInterface;
-	private BinDialog dlg;
+	private SelectionDialog dlg;
 //test
 	private void showDialog(final Module module) {
 		Preconditions.checkArgument(module.isLoaded(),
 				"Internal Error: Target module is not loaded");
+		dlg = new SelectionDialog(m_pluginInterface.getMainWindow().getFrame(), m_pluginInterface, module);
 
-		dlg = new BinDialog(m_pluginInterface.getMainWindow().getFrame(),
-				module, m_pluginInterface);
 		GuiHelper2.centerChildToParent(m_pluginInterface.getMainWindow()
 				.getFrame(), dlg, true);
 		dlg.setVisible(true);

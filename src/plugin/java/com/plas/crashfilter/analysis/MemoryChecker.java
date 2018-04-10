@@ -80,6 +80,7 @@ public class MemoryChecker {
 		  }
 		return false;
 	}
+
 	private boolean isDeffrentStack(InstructionGraphNode inst1, InstructionGraphNode inst2) throws MLocException
 	{
 		Set<IValue> valueSet1 = getIValueSetAbout(inst1);
@@ -100,8 +101,7 @@ public class MemoryChecker {
 					if(s1.getReg2().equals(new ActualReg("stack")) && s2.getReg2().equals(new ActualReg("stack")))
 					{
 						//both structuredMLoc is stack. 
-						if(s1.getC2().getValue() == s2.getC2().getValue())
-						{
+   						{
 							return false;
 						}						
 					}

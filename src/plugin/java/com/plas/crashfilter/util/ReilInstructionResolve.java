@@ -250,15 +250,7 @@ public class ReilInstructionResolve {
     public static boolean isSameDefinition(InstructionGraphNode def1, InstructionGraphNode def2) {
         // To do
         if (ReilInstructionResolve.isStoreToMemory(def1)) {
-            if (ReilInstructionResolve.isStoreToMemory(def2)) {
-                // After completing VSA, we need to add some code referencing
-                // VSA states
-                return false;
-            }
-            // In case that def2 is load or arithmetic
-            else {
-                return false;
-            }
+            return false;
         } else if (ReilInstructionResolve.isLoadToRegister(def1)) {
             if (ReilInstructionResolve.isStoreToMemory(def2)) {
                 return false;

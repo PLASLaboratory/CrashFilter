@@ -14,29 +14,29 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.File;
 
-public class BinDialog extends JDialog {
+public abstract class BinDialog extends JDialog {
 
 	private static final long serialVersionUID = 3510582583037335042L;
 
 	private boolean wasCancelled = true;
 	JTextArea filePathField;
 
-	private File f = null;
-	private String crashAddr = null;					
-	private TextField singleCrashAddrTextfield = new TextField("crashAddr");
-	private Checkbox availableDefinitionCheck = new Checkbox("Available Definition", false);
-	private Checkbox memoryAnalysisCheck = new Checkbox("memoryAnalysis",true);			
-	private Checkbox crashSrcAnalysisCheck = new Checkbox("crashSrcAnalysis",true);	
-	private Checkbox singleCrashCheck = new Checkbox("singleCrash", true); 	
-	private Checkbox interProcedureAnalysisCheck = new Checkbox("interProcedure", true);
-	private Checkbox callCountCheck = new Checkbox("callCountCheck", true);
+	File f = null;
+	String crashAddr = null;
+	TextField singleCrashAddrTextfield = new TextField("crashAddr");
+	Checkbox availableDefinitionCheck = new Checkbox("Available Definition", false);
+	Checkbox memoryAnalysisCheck = new Checkbox("memoryAnalysis",true);
+	Checkbox crashSrcAnalysisCheck = new Checkbox("crashSrcAnalysis",true);
+	Checkbox singleCrashCheck = new Checkbox("singleCrash", true);
+	Checkbox interProcedureAnalysisCheck = new Checkbox("interProcedure", true);
+	Checkbox callCountCheck = new Checkbox("callCountCheck", true);
 	
 	int optionalCode = 0;
 	// Add, Start Listener
 	Module m;
 	PluginInterface p;
 
-	public BinDialog(final JFrame parent, final Module module,	PluginInterface m_pluginInterface) {
+	public BinDialog(final JFrame parent, final Module module, PluginInterface m_pluginInterface, int jFileMode) {
 		super(parent, "CrashFilter", true);
 		m = module;
 		p = m_pluginInterface;
@@ -51,7 +51,7 @@ public class BinDialog extends JDialog {
 		final JPanel filePanel = new JPanel(new BorderLayout());
 		final JPanel checkerPanel = new JPanel(new BorderLayout());
 		filePanel.add(filePathField);
-		filePanel.add(new CPanelTwoButtons(new FListener(this), "ADD", "START"),BorderLayout.EAST);
+		filePanel.add(new CPanelTwoButtons(new FListener(BinDialog.this, jFileMode), "ADD", "START"),BorderLayout.EAST);
 		
 		singleCrashAddrTextfield.setText("Single Crash");										//HyeonGu 15.4.21
 		filePanel.add(singleCrashAddrTextfield,BorderLayout.AFTER_LAST_LINE);		//HyeonGu 15.4.21
@@ -92,13 +92,13 @@ public class BinDialog extends JDialog {
 		
 		setPreferredSize(new Dimension(800, 250));
 		pack();
-		
-		
+
+
 
 	}
 
 	
-	private int makeOptionalCode()
+	int makeOptionalCode()
 	{
 		int code = 0;
 		
@@ -116,11 +116,12 @@ public class BinDialog extends JDialog {
 
 	public class FListener implements ActionListener {
 		final BinDialog jd;
-
-		public FListener(BinDialog jd) {
+		final int jFileMode;
+		public FListener(BinDialog jd, int jFileMode) {
 			super();
 			this.jd = jd;
-		}		
+			this.jFileMode = jFileMode;
+		}
 
 		@Override
 		public void actionPerformed(ActionEvent arg0) {
@@ -129,7 +130,7 @@ public class BinDialog extends JDialog {
 				JFileChooser jfc = new JFileChooser();
 				jfc.setName("Crash File Select");
 				jfc.setSize(300, 200);
-				jfc.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+				jfc.setFileSelectionMode(jFileMode);
 				jfc.showDialog(BinDialog.this, "Analysis");
 				f = jfc.getSelectedFile();
 
@@ -148,11 +149,13 @@ public class BinDialog extends JDialog {
 				}
 
 				jd.dispose();
-				AnalysisStartThread analysisStartThread = new AnalysisStartThread(BinDialog.this.p, BinDialog.this.f, BinDialog.this.m ,BinDialog.this.crashAddr, optionalCode);
-				ProgressDialog.show(null, "Analysis...", analysisStartThread);
+				analysisStart();
+
 				//System.runFinalization()
 			}
-			
 		}
 	}
+
+	protected abstract void analysisStart();
+
 }

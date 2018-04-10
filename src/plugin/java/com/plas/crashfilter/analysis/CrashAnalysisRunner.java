@@ -30,7 +30,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.*;
 
-public class AnalysisRunner {
+public class CrashAnalysisRunner {
     final private File crashFolder;
     final private PluginInterface m_pluginInterface;
     final private Module module;
@@ -60,7 +60,7 @@ public class AnalysisRunner {
     private int escapableAnalysisCount = 0;
     private int e_call_cnt = 0;
 
-    public AnalysisRunner(PluginInterface m_plugin, File crachFolder, Module module, String crashAddr, int optionCode) {
+    public CrashAnalysisRunner(PluginInterface m_plugin, File crachFolder, Module module, String crashAddr, int optionCode) {
         this.module = module;
         System.out.println(module.getFilebase());
         this.m_pluginInterface = m_plugin;
@@ -118,6 +118,8 @@ public class AnalysisRunner {
             crashFilteringResult.put(crashPointAddress, dangerousness);
 
         }
+
+
         LogConsole.log(cihm.toString());
 
         countExploitableCrash();
@@ -159,7 +161,7 @@ public class AnalysisRunner {
 
         /************* Analysis Option Check ********************/
         if (memoryAnalysisCheck) {
-            mLocResult = memoryAnalysis(graph, curFunc);
+            mLocResult = memoryAnalysis(graph, curFunc, mLocResult);
         }
 
         if (interProcedureAnalysisCheck && interProcedureAnalysisMode == InterProcedureMode.FUNCTIONAnalysis) {
@@ -180,9 +182,9 @@ public class AnalysisRunner {
             LogConsole.log("== end ad analysis ==\n");
         }
         else {
-            List<Long> crashAddrs = new ArrayList<>();
-            crashAddrs.add(crashPointAddress);
-            ReachingDefinition rda = new ReachingDefinition(graph, crashAddrs, vf);
+            List<Long> virtualCrashAddrs = new ArrayList<>();
+            virtualCrashAddrs.add(crashPointAddress);
+            ReachingDefinition rda = new ReachingDefinition(graph, virtualCrashAddrs, vf);
             dfResult = rda.runRDAnalysis(interProcedureAnalysisMode);
             LogConsole.log("== end rd analysis ==\n");
         }
@@ -202,6 +204,9 @@ public class AnalysisRunner {
         ExploitableAnalysis exploitableAnalysis = new ExploitableAnalysis(du.getDuGraphs(), curFunc, crashPointAddress);
 
         switch (interProcedureAnalysisMode) {
+            // NORMAL과 Function analysis의 차이
+            // NORMAL은 크래시가 일어난 함수이고
+            //FUNCTIONAnalysis는 크래시가 아닌 함수 단위 분석
         case NORMAL:
 
             if (exploitableAnalysis.isTaintSink()) {
@@ -229,7 +234,7 @@ public class AnalysisRunner {
         case FUNCTIONAnalysis:
             List<Function> calleeFunction = getCallee(graph, curFunc);
             Dangerousness dagnerousness_global = Dangerousness.NE;
-            dagnerousness_global = glovalVariableAnalysis(curFunc, calleeFunction);
+            dagnerousness_global = glovalVariableAnalysis(curFunc, calleeFunction, crashPointToFuncAddr);
             
             ReturnValueAnalysis returnValueAnalysis = new ReturnValueAnalysis(du.getDuGraphs(), curFunc,
                     crashFilteringResult, dfResult, graph);
@@ -307,7 +312,6 @@ public class AnalysisRunner {
         return false;
     }
 
-
     private void crashSrcAnalysis(InterProcedureMode interProcedureAnalysisMode, Long crashPointAddress,
             ILatticeGraph<InstructionGraphNode> graph, List<InstructionGraphNode> taintSourceInstructionGraphNodes,
             VariableFinder vf, DefUseChain du) {
@@ -338,7 +342,7 @@ public class AnalysisRunner {
         Map<Long, CrashPoint> crashPointToFuncAddr = new HashMap<Long, CrashPoint>();
 
         Dangerousness dangerousness_g = Dangerousness.NE;
-        dangerousness_g = glovalVariableAnalysis(curFunc, calleeFunction);
+        dangerousness_g = glovalVariableAnalysis(curFunc, calleeFunction, crashPointToFuncAddr);
 
         Dangerousness dangerousness_f = Dangerousness.NE;
 
@@ -371,8 +375,9 @@ public class AnalysisRunner {
         return dangerousness_f;
     }
 
-    private Dangerousness glovalVariableAnalysis(Function curFunc, List<Function> calleeFunctions) {
-        //remove useless argument
+    private Dangerousness glovalVariableAnalysis(Function curFunc, List<Function> calleeFunctions,
+            Map<Long, CrashPoint> crashPointToFuncAddr) {
+
         GlobalVariableAnalysis globalVariableAnalysis = new GlobalVariableAnalysis(module, curFunc);
         if (globalVariableAnalysis.dontUseGlobalVariable()) {
             return Dangerousness.NE;
@@ -460,7 +465,7 @@ public class AnalysisRunner {
                 }
             }
         }
-        //Reil 명령어 모두 Crash 처리 해놓으면.. 플래그에 관해서는 괜찮은지..?
+
         if (curReilFunc != null) {
             graph = InstructionGraph.create(curReilFunc.getGraph()); // API's
                                                                      // structure
@@ -596,6 +601,8 @@ public class AnalysisRunner {
         return crashPointToFuncAddr;
     }
 
+
+
     private boolean hasFunctionCalls(ILatticeGraph<InstructionGraphNode> graph, Function curFunc) {
 
         List<FunctionEdge> edges = module.getCallgraph().getEdges();
@@ -610,7 +617,8 @@ public class AnalysisRunner {
     }
 
     private IStateVector<InstructionGraphNode, MLocLatticeElement> memoryAnalysis(
-            ILatticeGraph<InstructionGraphNode> graph, Function curFunc) throws MLocException {
+            ILatticeGraph<InstructionGraphNode> graph, Function curFunc,
+            IStateVector<InstructionGraphNode, MLocLatticeElement> mLocResult) throws MLocException {
         // TODO Auto-generated method stub
         LogConsole.log("== start locAnalysis analysis ==\n");
 
@@ -623,7 +631,7 @@ public class AnalysisRunner {
         MLocAnalysis mLocAnalysis = new MLocAnalysis(graph, curFunc);
 
         LogConsole.log("== analysis start ==\n");
-        IStateVector<InstructionGraphNode, MLocLatticeElement> mLocResult = mLocAnalysis.mLocAnalysis();
+        mLocResult = mLocAnalysis.mLocAnalysis();
         mLocAnalysis.deleteTempReg(mLocResult);
         mLocAnalysis.deleteBottomSymbol(mLocResult);
         LogConsole.log("== end memoryAnalysis ==\n");
