@@ -158,10 +158,9 @@ public class AvailableDefinition {
         }
     }
 
-    private DefLatticeElement applyMeetOperation(IStateVector<InstructionGraphNode, DefLatticeElement> beforeVector, IStateVector<InstructionGraphNode, DefLatticeElement> afterVector, List<InstructionGraphNode> preds) {
-
-        DefLatticeElement inputElement = intersectPred(beforeVector, preds);
-        return inputElement;
+    private DefLatticeElement applyMeetOperation(IStateVector<InstructionGraphNode, DefLatticeElement> beforeVector,
+                                                 IStateVector<InstructionGraphNode, DefLatticeElement> afterVector, List<InstructionGraphNode> preds) {
+        return intersectPred(beforeVector, preds);
     }
 
 

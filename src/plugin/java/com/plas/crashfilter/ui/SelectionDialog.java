@@ -15,12 +15,12 @@ public class SelectionDialog extends JDialog {
     private JButton loadFindPathDialogButton;
 
     //분석 module, 분석 binary 프로그램에 대한 정보를 가지고 있음음
-   private Module analysisModule;
+    private Module analysisModule;
 
     //BinNavi와 interaction 하기 위해 필요함 많이는 안쓰이지만 반드시 필요함
     private PluginInterface pluginInterface;
 
-    public SelectionDialog(final JFrame parent, PluginInterface pluginInterface,final Module module) {
+    public SelectionDialog(final JFrame parent, PluginInterface pluginInterface, final Module module) {
         super(parent, "CrashFilter 3.0 Development Version");
         this.analysisModule = module;
         this.pluginInterface = pluginInterface;
