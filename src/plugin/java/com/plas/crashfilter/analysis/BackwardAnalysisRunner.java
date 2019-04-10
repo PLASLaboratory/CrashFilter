@@ -9,21 +9,22 @@ import com.google.security.zynamics.binnavi.API.reil.mono.IStateVector;
 import com.google.security.zynamics.binnavi.API.reil.mono.InstructionGraph;
 import com.google.security.zynamics.binnavi.API.reil.mono.InstructionGraphNode;
 import com.google.security.zynamics.binnavi.standardplugins.utils.Pair;
+import org.javatuples.Triplet;
 import plugin.java.com.plas.crashfilter.analysis.dataflow.DeepDefChaining;
 import plugin.java.com.plas.crashfilter.analysis.dataflow.DefLatticeElement;
 import plugin.java.com.plas.crashfilter.analysis.dataflow.DefUseChain;
 import plugin.java.com.plas.crashfilter.analysis.dataflow.ReachingDefinition;
 import plugin.java.com.plas.crashfilter.analysis.helper.Graph.DefUseGraph;
 import plugin.java.com.plas.crashfilter.analysis.helper.Graph.DefUseNode;
-import plugin.java.com.plas.crashfilter.analysis.helper.HeapChecker;
 import plugin.java.com.plas.crashfilter.analysis.helper.VariableFinder;
-import plugin.java.com.plas.crashfilter.analysis.ipa.CallStackCleaner;
 import plugin.java.com.plas.crashfilter.analysis.ipa.InterProcedureMode;
 import plugin.java.com.plas.crashfilter.analysis.memory.MLocAnalysis;
 import plugin.java.com.plas.crashfilter.analysis.memory.MLocLatticeElement;
 import plugin.java.com.plas.crashfilter.analysis.memory.mloc.MLocException;
+import plugin.java.com.plas.crashfilter.util.CrashFileScanner;
 
 import java.io.*;
+import java.lang.reflect.Array;
 import java.util.*;
 
 /**
@@ -47,12 +48,13 @@ public class BackwardAnalysisRunner {
     ArrayList<Function> workList;
     long rdaTime = 0;
     long memLocTime = 0;
-    long heapTime  = 0;
+    long heapTime = 0;
     long callStackTime = 0;
 
     private boolean singleCrashCheck = false;
+    ArrayList<Triplet<Address, Address, Address>> calleeCallerList;
 
-    public BackwardAnalysisRunner(PluginInterface m_pluginInterface, File crashFolder,Module module, String inputAddress, int optionCode) {
+    public BackwardAnalysisRunner(PluginInterface m_pluginInterface, File crashFolder, Module module, String inputAddress, int optionCode) {
         this.crashFolder = crashFolder;
         this.m_pluginInterface = m_pluginInterface;
         this.module = module;
@@ -62,14 +64,17 @@ public class BackwardAnalysisRunner {
         tainted_instructions = new HashMap<>();
         tainted_instructions_count = new HashMap<>();
         address_expolit = new HashMap<>();
-        makeCallGraph_CVE_17122();
+        ArrayList<Triplet<String, String, String>> calleeCallerTris = CrashFileScanner.parseCallTraceLog(crashFolder);
+        this.calleeCallerList = makeCallGraph(calleeCallerTris);
+        //makeCallGraph_CVE_17122();
         //makeCallGraph_CVE_9755();
         //makeReadPath_2_29();
         //makeCallGraph_CVE_17122();
-        makeReadPath_17122();
+        //makeReadPath_17122();
         //makeCallGraph_CVE_16830();
         //makeReadPath_16830();
         //makeCallGraph_CVE_16829();
+        //makeReadPath();
         //makeReadPath_2_29();
     }
 
@@ -79,18 +84,18 @@ public class BackwardAnalysisRunner {
     }
 
 
-    public void run()  throws MLocException, InternalTranslationException{
+    public void run() throws MLocException, InternalTranslationException {
         decodeOptionCode(this.optionCode);
         ArrayList<Long> crashPointList = this.findFunctionFromCrashPointAddr();
         Map<Long, Boolean> result = new HashMap<Long, Boolean>();
         long beforeTime = System.currentTimeMillis();
-        for(Long crashAddr: crashPointList){
+        for (Long crashAddr : crashPointList) {
             address_expolit.put(crashAddr, false);
             runSingleCrash(crashAddr);
 
             Set<Long> nativeAddressSet = new HashSet<>();
             List<InstructionGraphNode> tainted_insts = this.tainted_instructions.get(crashAddr);
-            for(InstructionGraphNode insts : tainted_insts){
+            for (InstructionGraphNode insts : tainted_insts) {
                 nativeAddressSet.add(ReilHelpers.toNativeAddress(insts.getInstruction().getAddress()).toLong());
             }
             this.tainted_instructions_count.put(crashAddr, (long) nativeAddressSet.size());
@@ -104,10 +109,9 @@ public class BackwardAnalysisRunner {
     private ArrayList<Long> findFunctionFromCrashPointAddr() {
         ArrayList<Long> crashPointList = new ArrayList<>();
         if (singleCrashCheck) {
-                crashPointList.add(Long.decode(this.inputAddress));
-        }
-        else{
-            if(this.crashFolder.canRead()){
+            crashPointList.add(Long.decode(this.inputAddress));
+        } else {
+            if (this.crashFolder.canRead()) {
                 BufferedReader br = null;
                 try {
                     br = new BufferedReader(new FileReader(this.crashFolder));
@@ -116,8 +120,8 @@ public class BackwardAnalysisRunner {
                     // TODO Auto-generated catch block
                     e.printStackTrace();
                 }
-                while(true){
-                    String s= null;
+                while (true) {
+                    String s = null;
                     try {
                         s = br.readLine();
                         if (s == null) {
@@ -127,139 +131,75 @@ public class BackwardAnalysisRunner {
                         // TODO Auto-generated catch block
                         e.printStackTrace();
                     }
-                    crashPointList.add(Long.decode( s ));
+                    crashPointList.add(Long.decode(s));
                 }
             }
         }
         return crashPointList;
     }
-    private void runSingleCrash(Long inputAddress) throws MLocException, InternalTranslationException{
+
+    private void runSingleCrash(Long inputAddress) throws MLocException, InternalTranslationException {
         LogConsole.log("Finding Path Start!\n");
         crashAddress = inputAddress;
         List<InstructionGraphNode> tainted_insts = new ArrayList<>();
         this.tainted_instructions.put(inputAddress, tainted_insts);
         Long functionAddress = findFunction(inputAddress);
-        LogConsole.log("Found Function!!");
-
+        LogConsole.log("runSingleCrash: Found Function!!");
+        LogConsole.log(functionAddress.toString());
         Function currentFunction = ModuleHelpers.getFunction(this.module, functionAddress);
 
-        ReilFunction currentReilFunction = getReilFunction(currentFunction);
+        contextFunctionAnalysis(currentFunction, crashAddress);
 
-        LogConsole.log("Create ReilFunctionGraph");
-        ReilGraph currentReilFunctionGraph = currentReilFunction.getGraph();
-        InstructionGraph currentInstructionGraph = InstructionGraph.create(currentReilFunctionGraph);
-        List<InstructionGraphNode> currentInstructionGraphNodes = currentInstructionGraph.getNodes();
-
-        //Tainted instruction List
-        List<InstructionGraphNode> inputReilInstrutions = this.getInputInstructionGraphNode(currentInstructionGraphNodes, inputAddress);
-
-        Boolean taintSourceCheck = ((this.optionCode&0x100000) == 0x100000);
-
-
-
-        IStateVector<InstructionGraphNode, MLocLatticeElement> mLocResult = null;
-        try {
-            mLocResult =memoryAnalysis(currentInstructionGraph, currentFunction);
-        }catch (Exception e){
-            e.printStackTrace();
-            System.out.println(e.toString());
-        }
-        VariableFinder vf = new VariableFinder(module, currentFunction);
-
-        if(taintSourceCheck){
-            inputReilInstrutions = this.getTaintedInstructionNodes(inputReilInstrutions, vf);
-        }
-
-        IStateVector<InstructionGraphNode, DefLatticeElement> rdResult;
-        List<Long> virtualCrashAddrs = new ArrayList<>();
-        virtualCrashAddrs.add(inputAddress);
-        ReachingDefinition rda = new ReachingDefinition(currentInstructionGraph, virtualCrashAddrs, vf);
-        Long startTime = System.currentTimeMillis();
-        rdResult = rda.runRDAnalysis(InterProcedureMode.NORMAL);
-        Long endTime = System.currentTimeMillis();
-        this.rdaTime += endTime-startTime;
-        System.out.println("End Reaching");
-        DefUseChain defUseChain = new DefUseChain(rdResult,currentInstructionGraph, inputAddress, true );
-        defUseChain.setMemoryResult(mLocResult);
-        defUseChain.defUseChaining();
-
-        this.propagatePath.putAll(defUseChain.getPropagateOp());
-        DeepDefChaining deepDefChaining = new DeepDefChaining(currentInstructionGraph, defUseChain, inputReilInstrutions);
-        System.out.println("End def use");
-        LogConsole.log("Ready Deepdef Chaining!!!\n");
-
-        defUseChain.getDefUseChains();
-        deepDefChaining.analysis();
-
-        List<InstructionGraphNode> singleResult = new ArrayList<>();
-        List<DefUseGraph> resultGraphList = new ArrayList<>();
-        for(InstructionGraphNode inst : inputReilInstrutions) {
-            resultGraphList.add(DefUseGraph.createDefUseGraph(deepDefChaining.useDefMap,inst));
-        }
-
-        for(DefUseGraph graph : resultGraphList){
-            for(DefUseNode node: graph.getNodes()){
-                singleResult.add(node.getInst());
-            }
-        }
-        this.tainted_instructions.get(crashAddress).addAll(singleResult);
-        LogConsole.log("End DeepDef Chaining\n");
-        //DeepDefUse 구현
-        //현구의 DefUse 포함관계
-        //분석 interface 구현
-
-        //deepDefChaining.printResult();
-        backwardAnalysisIPA(currentFunction);
     }
 
-    private void printResult(Map<Long, Boolean> result, long processingTime){
+    private void printResult(Map<Long, Boolean> result, long processingTime) {
         Calendar cal = Calendar.getInstance();
 
         int year = cal.get(Calendar.YEAR);
-        int mon = cal.get(Calendar.MONTH);
+        int mon = cal.get(Calendar.MONTH) + 1;
         int day = cal.get(Calendar.DAY_OF_MONTH);
         int hour = cal.get(Calendar.HOUR_OF_DAY);
         int min = cal.get(Calendar.MINUTE);
         int i_cnt = 0;
         int pi_cnt = 0;
         int ni_cnt = 0;
-        String fileName = year+"."+mon+"."+day+"_"+hour+"."+min+"_"+module.getName();
+        String fileName = year + "." + mon + "." + day + "_" + hour + "." + min + "_" + module.getName();
         FileOutputStream output;
-        try{
-            output = new FileOutputStream("D:\\"+fileName+".txt");
-            for(Long addr:result.keySet()){
-                String outputStr = "0x" + Long.toHexString(addr) + "  :  " + result.get(addr) + "\rtainted instruction counts:"+ this.tainted_instructions_count.get(addr)+"\r\n";
+        try {
+            output = new FileOutputStream("/home/mok/testdata/result/" + fileName + ".txt");
+            for (Long addr : result.keySet()) {
+                String outputStr = "0x" + Long.toHexString(addr) + "  :  " + result.get(addr) + "\rtainted instruction counts:" + this.tainted_instructions_count.get(addr) + "\r\n";
                 output.write(outputStr.getBytes());
-                if(result.get(addr))
+                if (result.get(addr))
                     i_cnt++;
                 else
                     ni_cnt++;
             }
             String outputString = "\r\n" + "I : " + i_cnt + "\r\n";
             outputString += "NI : " + ni_cnt + "\r\n";
-            outputString += "Time : "+processingTime+"\r\n";
-            outputString += "RDA : "+rdaTime+"\r\n";
-            outputString += "mLoc : "+memLocTime+"\r\n";
+            outputString += "Time : " + processingTime + "\r\n";
+            outputString += "RDA : " + rdaTime + "\r\n";
+            outputString += "mLoc : " + memLocTime + "\r\n";
             output.write(outputString.getBytes());
             output.close();
-        }catch (IOException e){
+        } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
-    private void logTaintedInstruction(){
+    private void logTaintedInstruction() {
         LogConsole.log("=============logTaintedInstruction===========\n");
         Map<InstructionGraphNode, Set<Pair<InstructionGraphNode, String>>> result = new HashMap<>();
 
-        for(List<InstructionGraphNode> insts: tainted_instructions.values()){
-            for(InstructionGraphNode inst: insts){
+        for (List<InstructionGraphNode> insts : tainted_instructions.values()) {
+            for (InstructionGraphNode inst : insts) {
                 //LogConsole.log(inst.toString()+"\n");
-                if(this.propagatePath.containsKey(inst)) {
+                if (this.propagatePath.containsKey(inst)) {
                     LogConsole.log("contains KEy \n");
 
                     Set<Pair<InstructionGraphNode, String>> value = this.propagatePath.get(inst);
-                    for(Pair<InstructionGraphNode, String> pair : value){
-                        LogConsole.log(pair.first().toString()+"\n");
+                    for (Pair<InstructionGraphNode, String> pair : value) {
+                        LogConsole.log(pair.first().toString() + "\n");
                     }
                     result.put(inst, value);
                 }
@@ -277,91 +217,328 @@ public class BackwardAnalysisRunner {
         int i_cnt = 0;
         int pi_cnt = 0;
         int ni_cnt = 0;
-        String fileName = year+"."+mon+"."+day+"_"+hour+"."+min+"_"+module.getName()+"_inst_list";
+        String fileName = year + "." + mon + "." + day + "_" + hour + "." + min + "_" + module.getName() + "_inst_list";
         FileOutputStream output;
-        try{
-            output = new FileOutputStream("D:\\"+fileName+".txt");
-            for(InstructionGraphNode use: result.keySet()){
+        try {
+            output = new FileOutputStream("/home/mok/testdata/result/" + fileName + ".txt");
+            Set<Address> useAddressSet = new HashSet<>();
+            for (InstructionGraphNode use : result.keySet()) {
                 String outputString = "";
                 Address useAddress = ReilHelpers.toNativeAddress(use.getInstruction().getAddress());
-
-                for(Pair<InstructionGraphNode, String> defAndOp: result.get(use)){
+                useAddressSet.add(useAddress);
+                for (Pair<InstructionGraphNode, String> defAndOp : result.get(use)) {
                     Address defAddress = ReilHelpers.toNativeAddress(defAndOp.first().getInstruction().getAddress());
-                    if(useAddress.equals(defAddress)) continue;
-                    outputString = useAddress.toHexString()+":"+defAddress.toHexString()+":"+defAndOp.second()+"\n";
+                    if (useAddress.equals(defAddress)) continue;
+                    outputString = useAddress.toHexString() + ":" + defAddress.toHexString() + ":" + defAndOp.second() + "\n";
                     output.write(outputString.getBytes());
                 }
             }
+
             output.close();
-        }catch (IOException e){
+        } catch (IOException e) {
             e.printStackTrace();
         }
 
     }
 
-    private List<DefUseGraph> makeGraph(Map<InstructionGraphNode, List<InstructionGraphNode>> resultMap, List<InstructionGraphNode> insts){
+    private List<DefUseGraph> makeGraph(Map<InstructionGraphNode, List<InstructionGraphNode>> resultMap, List<InstructionGraphNode> insts) {
         LogConsole.log("Debug makeGraph\n");
         List<DefUseGraph> resultGraphList = new ArrayList<>();
-        for(InstructionGraphNode inst : insts) {
-            resultGraphList.add(DefUseGraph.createDefUseGraph(resultMap,inst));
+        for (InstructionGraphNode inst : insts) {
+            resultGraphList.add(DefUseGraph.createDefUseGraph(resultMap, inst));
         }
         LogConsole.log("Debug makeGraph1\n");
 
         LogConsole.log("Debug makeGraph2\n");
         return resultGraphList;
     }
-    private FunctionBlock findFunctionBlock(Function function){
+
+    private FunctionBlock findFunctionBlock(Function function) {
         FunctionBlock currentFunctionBlock = null;
         List<FunctionBlock> functionList = module.getCallgraph().getNodes();
-        for(FunctionBlock functionBlock : functionList){
-            if(functionBlock.getFunction().getAddress().toLong()==function.getAddress().toLong()) {
+        for (FunctionBlock functionBlock : functionList) {
+            if (functionBlock.getFunction().getAddress().toLong() == function.getAddress().toLong()) {
                 currentFunctionBlock = functionBlock;
                 LogConsole.log("Found Function!\n");
             }
         }
         return currentFunctionBlock;
     }
-    private void backwardAnalysisIPA(Function function){
-        LogConsole.log("BackwardAnalysisIPA Start!!!\n");
-        LogConsole.log("Function Name: "+function.getName()+"\n");
 
-        if(this.workList.contains(function))
-             fowardAnalysis(function);
+    private void contextFunctionAnalysis(Function function, Long inputAddress) throws MLocException {
+        if (!function.isLoaded()) {
+            try {
+                function.load();
+            } catch (CouldntLoadDataException e) {
+                System.out.println(e);
+            }
+        }
+        LogConsole.log("context-1");
+        ReilFunction currentReilFunction = getReilFunction(function);
+        LogConsole.log("context0");
+
+        InstructionGraph currentInstructionGraph = InstructionGraph.create(currentReilFunction.getGraph());
+        List<InstructionGraphNode> currentInstructionGraphNodes = currentInstructionGraph.getNodes();
+        LogConsole.log("context1");
+        IStateVector<InstructionGraphNode, MLocLatticeElement> mLocResult = null;
+        try {
+            mLocResult = memoryAnalysis(currentInstructionGraph, function);
+        } catch (Exception e) {
+            e.printStackTrace();
+            System.out.println(e.toString());
+        }
+        LogConsole.log("context2");
+        VariableFinder vf = new VariableFinder(module, function);
+        List<InstructionGraphNode> inputReilInstrutions = this.getInputInstructionGraphNode(currentInstructionGraphNodes, inputAddress);
+
+        inputReilInstrutions = this.getTaintedInstructionNodes(inputReilInstrutions, vf);
+        LogConsole.log("context3");
+        IStateVector<InstructionGraphNode, DefLatticeElement> rdResult;
+        List<Long> virtualCrashAddrs = new ArrayList<>();
+
+        ReachingDefinition rda = new ReachingDefinition(currentInstructionGraph, virtualCrashAddrs, vf);
+        Long startTime = System.currentTimeMillis();
+        rdResult = rda.runRDAnalysis(InterProcedureMode.NORMAL);
+        Long endTime = System.currentTimeMillis();
+        this.rdaTime += endTime - startTime;
+        System.out.println("End Reaching");
+
+        virtualCrashAddrs.add(inputAddress);
+        DefUseChain defUseChain = new DefUseChain(rdResult, currentInstructionGraph, new Long(0), false);
+        defUseChain.setMemoryResult(mLocResult);
+        defUseChain.defUseChaining();
+
+        this.propagatePath.putAll(defUseChain.getPropagateOp());
+        DeepDefChaining deepDefChaining = new DeepDefChaining(currentInstructionGraph, defUseChain, inputReilInstrutions);
+        System.out.println("End def use");
+        LogConsole.log("Ready Deepdef Chaining!!!\n");
+
+        defUseChain.getDefUseChains();
+        deepDefChaining.analysis();
+
+        List<InstructionGraphNode> singleResult = new ArrayList<>();
+        List<DefUseGraph> resultGraphList = new ArrayList<>();
+        for (InstructionGraphNode inst : inputReilInstrutions) {
+            resultGraphList.add(DefUseGraph.createDefUseGraph(deepDefChaining.useDefMap, inst));
+        }
+
+        for (DefUseGraph graph : resultGraphList) {
+            for (DefUseNode node : graph.getNodes()) {
+                singleResult.add(node.getInst());
+            }
+        }
+
+        this.tainted_instructions.get(crashAddress).addAll(singleResult);
+
+        checkIPA(function, singleResult);
+    }
+
+    private void checkIPA(Function contextFunc, List<InstructionGraphNode> taintedInst) throws MLocException {
+        System.out.println("Start checkIPA!");
+        if (this.calleeCallerList.isEmpty()) {
+            System.out.println("List is Empty, so we end analysis");
+            return;
+        }
+        Triplet<Address, Address, Address> tris = null;
+        try {
+            tris = this.calleeCallerList.get(this.calleeCallerList.size() - 1);
+        } catch (Exception e) {
+            System.out.println(e);
+        }
+        System.out.println("ContextFunc: " + contextFunc.getAddress());
+        System.out.println("tris: " + tris);
+        if (!contextFunc.getAddress().equals(tris.getValue0())) {
+            //context function is not caller and context function is not callee.
+            System.out.println("Skip this line!");
+            if (!contextFunc.getAddress().equals(tris.getValue1())) {
+                this.calleeCallerList.remove(tris);
+                checkIPA(contextFunc, taintedInst);
+                return;
+            }
+        }
+
+        if (tris.getValue1().equals(contextFunc.getAddress())) {
+            //callee is equal to contextFunc, so we analyze caller of context function.
+            System.out.println("Callee is equal to contextFunc");
+            Function callerFunc = ModuleHelpers.getFunction(module, tris.getValue0());
+            if (!callerFunc.isLoaded()) {
+                try {
+                    callerFunc.load();
+                } catch (CouldntLoadDataException e) {
+                    e.printStackTrace();
+                }
+            }
+
+            System.out.println("(if) Analysis: " + callerFunc.getAddress());
+            List<Instruction> argList = getArgInsts(callerFunc, tris.getValue2());
+            this.calleeCallerList.remove(tris);
+            contextFunctionAnalysis(callerFunc, tris.getValue2().toLong());
+        } else if (tris.getValue0().equals(contextFunc.getAddress())) {
+            //caller is equal to contextFunc, so we analyze callee function
+            System.out.println("caller is equal to contextFunc");
+            Function callerFunc = contextFunc;
+            if (!callerFunc.isLoaded()) {
+                try {
+                    callerFunc.load();
+                } catch (CouldntLoadDataException e) {
+                    e.printStackTrace();
+                }
+            }
+            System.out.println("(else) Analysis: " + callerFunc.getAddress());
+
+            InstructionGraph ig = InstructionGraph.create(getReilFunction(callerFunc).getGraph());
+
+            List<Instruction> argList = getArgInsts(contextFunc, tris.getValue2());
+
+            List<InstructionGraphNode> argInstGraphNode = new ArrayList<>();
+
+            for (InstructionGraphNode ign : ig.getNodes()) {
+                for (Instruction argInst : argList) {
+                    if (ReilHelpers.toNativeAddress(ign.getInstruction().getAddress()).equals(argInst.getAddress())) {
+                        argInstGraphNode.add(ign);
+                    }
+                }
+            }
+
+            for (InstructionGraphNode ign : argInstGraphNode) {
+                if (taintedInst.contains(ign)) {
+                    taintedInst.addAll(argInstGraphNode);
+                    this.tainted_instructions.get(crashAddress).add(ign);
+                    break;
+                }
+            }
+
+            this.calleeCallerList.remove(tris);
+            checkIPA(callerFunc, taintedInst);
+        }
+
+    }
+
+    private void new_checkIPA(Function contextFunc, List<InstructionGraphNode> taintedInst) {
+        System.out.println("Start checkIPA!");
+        if (this.calleeCallerList.isEmpty()) {
+            System.out.println("List is Empty, so we end analysis");
+            return;
+        }
+        Triplet<Address, Address, Address> tris = null;
+        while (!this.calleeCallerList.isEmpty()) {
+            try {
+                tris = this.calleeCallerList.get(this.calleeCallerList.size() - 1);
+            } catch (Exception e) {
+                System.out.println(e);
+            }
+            if (!contextFunc.getAddress().equals(tris.getValue0())) {
+                //context function is not caller and context function is not callee.
+                System.out.println("Skip this line!");
+                if (!contextFunc.getAddress().equals(tris.getValue1())) {
+                    this.calleeCallerList.remove(tris);
+                    continue;
+                }
+            }
+
+            if (tris.getValue1().equals(contextFunc.getAddress())) {
+                //callee is equal to contextFunc, so we analyze caller of context function.
+                System.out.println("Callee is equal to contextFunc");
+                Function callerFunc = ModuleHelpers.getFunction(module, tris.getValue0());
+                if (!callerFunc.isLoaded()) {
+                    try {
+                        callerFunc.load();
+                    } catch (CouldntLoadDataException e) {
+                        e.printStackTrace();
+                    }
+                }
+
+                System.out.println("(if) Analysis: " + callerFunc.getAddress());
+                List<Instruction> argList = getArgInsts(callerFunc, tris.getValue2());
+                this.calleeCallerList.remove(tris);
+                try {
+                    contextFunctionAnalysis(callerFunc, tris.getValue2().toLong());
+                } catch (MLocException e) {
+                    System.out.println(e);
+                }
+            } else if (tris.getValue0().equals(contextFunc.getAddress())) {
+                //caller is equal to contextFunc, so we analyze callee function
+                System.out.println("caller is equal to contextFunc");
+                Function callerFunc = contextFunc;
+                if (!callerFunc.isLoaded()) {
+                    try {
+                        callerFunc.load();
+                    } catch (CouldntLoadDataException e) {
+                        e.printStackTrace();
+                    }
+                }
+                System.out.println("(else) Analysis: " + callerFunc.getAddress());
+
+                InstructionGraph ig = InstructionGraph.create(getReilFunction(callerFunc).getGraph());
+
+                List<Instruction> argList = getArgInsts(contextFunc, tris.getValue2());
+
+                List<InstructionGraphNode> argInstGraphNode = new ArrayList<>();
+
+                for (InstructionGraphNode ign : ig.getNodes()) {
+                    for (Instruction argInst : argList) {
+                        if (ReilHelpers.toNativeAddress(ign.getInstruction().getAddress()).equals(argInst.getAddress())) {
+                            argInstGraphNode.add(ign);
+                        }
+                    }
+                }
+
+                for (InstructionGraphNode ign : argInstGraphNode) {
+                    if (taintedInst.contains(ign)) {
+                        taintedInst.addAll(argInstGraphNode);
+                        this.tainted_instructions.get(crashAddress).add(ign);
+                        break;
+                    }
+                }
+                this.calleeCallerList.remove(tris);
+                contextFunc = callerFunc;
+            }
+        }
+    }
+
+    /*unused*/
+    private void backwardAnalysisIPA(Function function) {
+        LogConsole.log("BackwardAnalysisIPA Start!!!\n");
+        LogConsole.log("Function Name: " + function.getName() + "\n");
+
+        if (this.workList.contains(function))
+            fowardAnalysis(function);
 
         //We don't use call graph in BinNavi
         //We use call trace.
-
-        if(calleeCallerMap.containsKey(function.getName())){
+        if (calleeCallerMap.containsKey(function.getAddress())) {
+            //if (calleeCallerMap.containsKey(function.getName())) {
             LogConsole.log("BackwardAnalysisIPA CALLER CALLEE!!!\n");
 
             Pair<String, Address> pair = calleeCallerMap.get(function.getName());
             Function parent = findFunction(pair.first());
             List<Instruction> argList = getArgInsts(parent, pair.second());
-            for(Instruction inst: argList)
+            for (Instruction inst : argList)
                 LogConsole.log(inst.toString());
-            try{
+            try {
                 isReachableInput(parent, argList);
-            }
-            catch(MLocException e){
+            } catch (MLocException e) {
                 System.out.println(e.toString());
             }
         }
     }
 
+    /*unused*/
     private void fowardAnalysis(Function fb) {
         runForwardAnalysis(fb);
     }
 
-    private void runForwardAnalysis(Function fb){
+    /*unused*/
+    private void runForwardAnalysis(Function fb) {
         workList.remove(fb);
-        if(fb.getName().equals("_read")||fb.getName().equals("fread")){
+        if (fb.getName().equals("_read") || fb.getName().equals("fread")) {
             this.address_expolit.put(this.crashAddress, true);
-            return ;
+            return;
         }
         LogConsole.log("ForwardAnalysis Start!!!\n");
-        LogConsole.log("Function Name: "+fb.getName()+"\n");
+        LogConsole.log("Function Name: " + fb.getName() + "\n");
         Function function = fb;
-        if(!function.isLoaded()) {
+        if (!function.isLoaded()) {
             try {
                 function.load();
             } catch (CouldntLoadDataException e) {
@@ -374,8 +551,8 @@ public class BackwardAnalysisRunner {
         virtualCrashAddrs.add(function.getAddress().toLong());
         InstructionGraph iGraph = getReilGraph(function);
 
-        for(Long crashAddr: virtualCrashAddrs){
-            taintedInst.addAll (this.getInputInstructionGraphNode(iGraph.getNodes(), crashAddr));
+        for (Long crashAddr : virtualCrashAddrs) {
+            taintedInst.addAll(this.getInputInstructionGraphNode(iGraph.getNodes(), crashAddr));
         }
         IStateVector<InstructionGraphNode, MLocLatticeElement> mLocResult = null;
         try {
@@ -385,12 +562,12 @@ public class BackwardAnalysisRunner {
         }
         VariableFinder vf = new VariableFinder(this.module, function);
         IStateVector<InstructionGraphNode, DefLatticeElement> rdResult = null;
-        ReachingDefinition rda = new ReachingDefinition(iGraph, virtualCrashAddrs , vf);
+        ReachingDefinition rda = new ReachingDefinition(iGraph, virtualCrashAddrs, vf);
         try {
             long startTime = System.currentTimeMillis();
             rdResult = rda.runRDAnalysis(InterProcedureMode.FUNCTIONAnalysis);
             long endTime = System.currentTimeMillis();
-            rdaTime += endTime-startTime;
+            rdaTime += endTime - startTime;
         } catch (MLocException e) {
             e.printStackTrace();
         }
@@ -407,8 +584,8 @@ public class BackwardAnalysisRunner {
 
         List<DefUseChain.DefUseGraph> resultGraph = defUseChain.getDuGraphs();
         LogConsole.log("where?2\n");
-        for(DefUseChain.DefUseGraph dug: resultGraph){
-            for(DefUseChain.DefUseNode dun :dug.getNodes()){
+        for (DefUseChain.DefUseGraph dug : resultGraph) {
+            for (DefUseChain.DefUseNode dun : dug.getNodes()) {
                 taintedInst.add(dun.getInst());
             }
         }
@@ -416,34 +593,34 @@ public class BackwardAnalysisRunner {
         tainted_inst_set.addAll(taintedInst);
         this.tainted_instructions.get(crashAddress).addAll(tainted_inst_set);
 
-        for(FunctionBlock child : findFunctionBlock(fb).getChildren()){
-            if(this.workList.contains(child)){
+        for (FunctionBlock child : findFunctionBlock(fb).getChildren()) {
+            if (this.workList.contains(child)) {
                 runForwardAnalysis(child.getFunction());
             }
         }
 
-        LogConsole.log("Function Name: "+function.getName()+"\n");
+        LogConsole.log("Function Name: " + function.getName() + "\n");
         LogConsole.log("ForwardAnalysis End!!!\n");
-        if(workList.size()!=0){
+        if (workList.size() != 0) {
             Function nextWork = workList.get(0);
             runForwardAnalysis(nextWork);
         }
     }
 
-    private Function findFunction(Callgraph cg, Long addr){
-        for(FunctionBlock fb: cg.getNodes()){
-            if(addr.equals(fb.getFunction().getAddress().toLong()))
+    private Function findFunction(Callgraph cg, Long addr) {
+        for (FunctionBlock fb : cg.getNodes()) {
+            if (addr.equals(fb.getFunction().getAddress().toLong()))
                 return fb.getFunction();
         }
         return null;
     }
 
-
-    private void isReachableInput(Function function, List<Instruction> argList) throws MLocException{
+    /*unused*/
+    private void isReachableInput(Function function, List<Instruction> argList) throws MLocException {
         LogConsole.log("isReachableInput Start!!!\n");
-        LogConsole.log("Function Name: "+function.getName()+"\n");
+        LogConsole.log("Function Name: " + function.getName() + "\n");
 
-        if(!function.isLoaded()) {
+        if (!function.isLoaded()) {
             try {
                 function.load();
             } catch (CouldntLoadDataException e) {
@@ -453,23 +630,23 @@ public class BackwardAnalysisRunner {
         List<Long> virtualCrashAddrs = new ArrayList<>();
         List<InstructionGraphNode> taintedInst = new ArrayList<>();
 
-        for(Instruction inst: argList)
+        for (Instruction inst : argList)
             virtualCrashAddrs.add(inst.getAddress().toLong());
         InstructionGraph iGraph = getReilGraph(function);
 
-        for(Long crashAddr: virtualCrashAddrs){
-            taintedInst.addAll (this.getInputInstructionGraphNode(iGraph.getNodes(), crashAddr));
+        for (Long crashAddr : virtualCrashAddrs) {
+            taintedInst.addAll(this.getInputInstructionGraphNode(iGraph.getNodes(), crashAddr));
         }
         IStateVector<InstructionGraphNode, MLocLatticeElement> mLocResult = null;
         try {
             mLocResult = memoryAnalysis(iGraph, function);
-        }catch (MLocException e){
+        } catch (MLocException e) {
             System.out.println(e.toString());
         }
         LogConsole.log("End Mloc analysis \n");
         VariableFinder vf = new VariableFinder(this.module, function);
         IStateVector<InstructionGraphNode, DefLatticeElement> rdResult;
-        ReachingDefinition rda = new ReachingDefinition(iGraph, virtualCrashAddrs , vf);
+        ReachingDefinition rda = new ReachingDefinition(iGraph, virtualCrashAddrs, vf);
         long startTime = System.currentTimeMillis();
         rdResult = rda.runRDAnalysis(InterProcedureMode.NORMAL);
         LogConsole.log("End RD analysis \n");
@@ -490,20 +667,20 @@ public class BackwardAnalysisRunner {
 
         List<DefUseGraph> resultGraph = makeGraph(deepDefChaining.useDefMap, taintedInst);
         LogConsole.log("where?2\n");
-        for(DefUseGraph dug: resultGraph){
-            for(DefUseNode dun :dug.getNodes()){
+        for (DefUseGraph dug : resultGraph) {
+            for (DefUseNode dun : dug.getNodes()) {
                 taintedInst.add(dun.getInst());
             }
         }
 
         tainted_inst_set.addAll(taintedInst);
         this.tainted_instructions.get(crashAddress).addAll(tainted_inst_set);
-        LogConsole.log("Function Name: "+function.getName()+"\n");
+        LogConsole.log("Function Name: " + function.getName() + "\n");
         LogConsole.log("isReachableInput End!!!\n");
         backwardAnalysisIPA(function);
     }
 
-    private InstructionGraph getReilGraph(Function function){
+    private InstructionGraph getReilGraph(Function function) {
         ReilFunction currentReilFunction = null;
         try {
             currentReilFunction = function.getReilCode();
@@ -514,14 +691,15 @@ public class BackwardAnalysisRunner {
         InstructionGraph currentInstructionGraph = InstructionGraph.create(currentReilGraph);
         return currentInstructionGraph;
     }
-//    private IStateVector<InstructionGraphNode, DefLatticeElement> retrunRdResult(Function function){
+
+    //    private IStateVector<InstructionGraphNode, DefLatticeElement> retrunRdResult(Function function){
 //        IStateVector<InstructionGraphNode, DefLatticeElement> rdResult;
 //        VariableFinder
 //
 //        return rdResult;
 //    }
     //this function not use now
-    private boolean includeSystemCall(Function function){
+    private boolean includeSystemCall(Function function) {
         //함수에 시스템콜이 포함되어 있는지 찾음...
         //찾으면 시스템콜이 포함되어 있는 베이직블록과 그 상의 List index를 리턴
         //그렇지 않으면 null 리턴
@@ -544,18 +722,19 @@ public class BackwardAnalysisRunner {
 //        return false;
 
         List<FunctionBlock> children = findFunctionBlock(function).getChildren();
-        for(FunctionBlock fb: children){
-            if(fb.getFunction().getName().contains("read")||fb.getFunction().getName().contains("fread")) {
-                LogConsole.log("INclude : "+fb.getFunction().getName()+"\n");
+        for (FunctionBlock fb : children) {
+            if (fb.getFunction().getName().contains("read") || fb.getFunction().getName().contains("fread")) {
+                LogConsole.log("INclude : " + fb.getFunction().getName() + "\n");
                 return true;
             }
         }
         return false;
     }
+
     //not use
-    private List<Instruction> getCallBasicBlock(Function f, String fName){
+    private List<Instruction> getCallBasicBlock(Function f, String fName) {
         LogConsole.log("getCallBasicBlock Debug \n");
-        if(!f.isLoaded()) {
+        if (!f.isLoaded()) {
             try {
                 f.load();
             } catch (CouldntLoadDataException e) {
@@ -563,11 +742,11 @@ public class BackwardAnalysisRunner {
             }
         }
         ArrayList<Instruction> callReverseInsts = new ArrayList<>();
-        for(BasicBlock bb : f.getGraph().getNodes()){
-            for(Instruction inst : bb.getInstructions()){
+        for (BasicBlock bb : f.getGraph().getNodes()) {
+            for (Instruction inst : bb.getInstructions()) {
                 callReverseInsts.add(inst);
-                if(inst.getMnemonic().contains("call")){
-                    for(Operand op : inst.getOperands()) {
+                if (inst.getMnemonic().contains("call")) {
+                    for (Operand op : inst.getOperands()) {
                         if (op.toString().contains(fName)) {
                             LogConsole.log("Found!!!!\n");
                             LogConsole.log("End getCallBasicBlock Debug\n");
@@ -581,9 +760,10 @@ public class BackwardAnalysisRunner {
         LogConsole.log("Can't Found it. End getCallBasicBlock Debug\n");
         return null;
     }
-    private List<Instruction> getCallBasicBlock(Function f, Address address){
+
+    private List<Instruction> getCallBasicBlock(Function f, Address address) {
         LogConsole.log("getCallBasicBlock Debug \n");
-        if(!f.isLoaded()) {
+        if (!f.isLoaded()) {
             try {
                 f.load();
             } catch (CouldntLoadDataException e) {
@@ -591,12 +771,13 @@ public class BackwardAnalysisRunner {
             }
         }
         ArrayList<Instruction> callReverseInsts = new ArrayList<>();
-        for(BasicBlock bb : f.getGraph().getNodes()){
-            for(Instruction inst : bb.getInstructions()){
+        for (BasicBlock bb : f.getGraph().getNodes()) {
+            for (Instruction inst : bb.getInstructions()) {
                 callReverseInsts.add(inst);
-                if(inst.getAddress().equals(address)){
-                            Collections.reverse(callReverseInsts);
-                            return callReverseInsts;
+                if (inst.getAddress().equals(address)) {
+                    System.out.println("I found it!!");
+                    Collections.reverse(callReverseInsts);
+                    return callReverseInsts;
                 }
 
             }
@@ -604,21 +785,22 @@ public class BackwardAnalysisRunner {
         LogConsole.log("Can't Found it. End getCallBasicBlock Debug\n");
         return null;
     }
-    private List<Instruction> getArgInsts(List<Instruction> insts){
+
+    private List<Instruction> getArgInsts(List<Instruction> insts) {
         //Argument 가 직접적으로 사용된 instruction
         ArrayList<Instruction> resultList = new ArrayList<>();
         //delete call points
         insts.remove(0);
-        for(int i = 0 ; i < 5; i ++)
+        for (int i = 0; i < 5 && i < insts.size(); i++)
             resultList.add(insts.get(i));
 
         return resultList;
     }
 
-    private List<Instruction> getArgInsts(Function parent, Address address){
+    private List<Instruction> getArgInsts(Function parent, Address address) {
         //Argument 가 직접적으로 사용된 instruction
         LogConsole.log("In Function getArgInsts\n");
-        if(!parent.isLoaded()) try {
+        if (!parent.isLoaded()) try {
             parent.load();
         } catch (CouldntLoadDataException e) {
             e.printStackTrace();
@@ -627,51 +809,52 @@ public class BackwardAnalysisRunner {
         return getArgInsts(instList);
     }
 
-    private boolean checkOperandisArg(Instruction inst){
-        for(Operand op : inst.getOperands())
+    private boolean checkOperandisArg(Instruction inst) {
+        for (Operand op : inst.getOperands())
             LogConsole.log(op.toString());
         LogConsole.log("\n\n");
 
-        if(inst.getOperands().size()<1)
+        if (inst.getOperands().size() < 1)
             return false;
-        if(inst.getMnemonic().equals("push")) return true;
+        if (inst.getMnemonic().equals("push")) return true;
         return inst.getOperands().get(0).toString().contains("esp");
     }
 
 
-    private List<InstructionGraphNode> getInputInstructionGraphNode(List<InstructionGraphNode> instructionGraphNodes, Long inputAddress){
+    private List<InstructionGraphNode> getInputInstructionGraphNode(List<InstructionGraphNode> instructionGraphNodes, Long inputAddress) {
         List<InstructionGraphNode> inputReilinstructions = new ArrayList<>();
-        for (InstructionGraphNode instructionGraphNode: instructionGraphNodes){
+        for (InstructionGraphNode instructionGraphNode : instructionGraphNodes) {
             Address instructionAddress = ReilHelpers.toNativeAddress(instructionGraphNode.getInstruction().getAddress());
-            if(instructionAddress.toLong() == inputAddress)
+            if (instructionAddress.toLong() == inputAddress)
                 inputReilinstructions.add(instructionGraphNode);
         }
         return inputReilinstructions;
     }
 
-    private void printResult(List<InstructionGraphNode> resultInstructionGraphNodes){
+    private void printResult(List<InstructionGraphNode> resultInstructionGraphNodes) {
         LogConsole.log("Logging Start!");
         Set<String> resultInstructionGraphNodesSet = new HashSet<>();
-        for(InstructionGraphNode node: resultInstructionGraphNodes) {
+        for (InstructionGraphNode node : resultInstructionGraphNodes) {
             Address nativeAddress = ReilHelpers.toNativeAddress(node.getInstruction().getAddress());
             resultInstructionGraphNodesSet.add(nativeAddress.toHexString());
         }
         List<String> resultAddresses = new ArrayList<>();
         resultAddresses.addAll(resultInstructionGraphNodesSet);
         Collections.sort(resultAddresses);
-        try{
+        try {
             FileWriter fw = new FileWriter("d:/test.txt");
-            for(String address : resultAddresses)
-                fw.write(address+"\r\n");
+            for (String address : resultAddresses)
+                fw.write(address + "\r\n");
             fw.close();
-        }catch(IOException e){
+        } catch (IOException e) {
 
         }
     }
+
     private ReilFunction getReilFunction(Function function) {
         ReilFunction reilFunction = null;
         try {
-            if(!function.isLoaded())
+            if (!function.isLoaded())
                 function.load();
         } catch (CouldntLoadDataException e) {
             e.printStackTrace();
@@ -679,13 +862,13 @@ public class BackwardAnalysisRunner {
         LogConsole.log("Created ReilFunction");
         try {
             reilFunction = function.getReilCode();
-        }catch (InternalTranslationException e){
+        } catch (InternalTranslationException e) {
 
         }
         return reilFunction;
     }
 
-    private Long findFunction(Long inputAddress){
+    private Long findFunction(Long inputAddress) {
         List<FunctionBlock> fb = module.getCallgraph().getNodes();
 
         Long crashPointAddr = inputAddress;
@@ -723,30 +906,32 @@ public class BackwardAnalysisRunner {
         return funcAddr_result;
 
     }
-    private Function findFunction(String fName){
+
+    private Function findFunction(String fName) {
         Callgraph cg = this.module.getCallgraph();
-        for(FunctionBlock fb : cg.getNodes()){
-            if(fb.getFunction().getName().equals(fName))
+        for (FunctionBlock fb : cg.getNodes()) {
+            if (fb.getFunction().getName().equals(fName))
                 return fb.getFunction();
         }
         LogConsole.log("Cannot Found function : in findFunction(String fName)\n");
         System.out.println("Cannot Found function : in findFunction(String fName)\n");
-        for(StackTraceElement st :Thread.currentThread().getStackTrace()){
-            System.out.println(st.toString()+"\n");
+        for (StackTraceElement st : Thread.currentThread().getStackTrace()) {
+            System.out.println(st.toString() + "\n");
         }
         return null;
 
     }
 
-    private List<InstructionGraphNode> getTaintedInstructionNodes (List<InstructionGraphNode> taintedInstruction, VariableFinder vf){
+    private List<InstructionGraphNode> getTaintedInstructionNodes(List<InstructionGraphNode> taintedInstruction, VariableFinder vf) {
         List<InstructionGraphNode> resultNodes = new ArrayList<>();
-        InstructionGraphNode node = taintedInstruction.get(taintedInstruction.size()-1);
+        InstructionGraphNode node = taintedInstruction.get(taintedInstruction.size() - 1);
         resultNodes.add(node);
         return resultNodes;
     }
+
     private IStateVector<InstructionGraphNode, MLocLatticeElement> memoryAnalysis(
             ILatticeGraph<InstructionGraphNode> graph, Function curFunc) throws MLocException {
-        LogConsole.log("Function Name in Memory ANalysis" + curFunc.getName()+"\n");
+        LogConsole.log("Function Name in Memory ANalysis" + curFunc.getName() + "\n");
         // TODO Auto-generated method stub
         Long startTime = System.currentTimeMillis();
         IStateVector<InstructionGraphNode, MLocLatticeElement> mLocResult;
@@ -772,13 +957,13 @@ public class BackwardAnalysisRunner {
         // envAnalysis.printEnv(envResult);
         // LogConsole.log("== end print env analysis ===\n");
         Long endTime = System.currentTimeMillis();
-        memLocTime += endTime-startTime;
+        memLocTime += endTime - startTime;
         return mLocResult;
 
     }
 
 
-    private void parseCallGraph(){
+    private void parseCallGraph() {
         //for binutil2.29
         //callee's name is key. value is pair that are function name and call point.
         /*
@@ -795,8 +980,7 @@ public class BackwardAnalysisRunner {
     }
 
 
-
-    private void makeCallGraph(){
+    private void makeCallGraph() {
         //for binutil2.28
 /*
         calleeCallerMap = new HashMap<>();
@@ -805,12 +989,12 @@ public class BackwardAnalysisRunner {
         calleeCallerMap.put(new Long(0x804bef3), fp0);*/
     }
 
-    private void makeReadPath(){
+    private void makeReadPath() {
         //objdump2.29.1
         Callgraph cg = this.module.getCallgraph();
         FunctionBlock _read = null;
-        for(FunctionBlock fb : cg.getNodes()){
-            if(fb.getFunction().getName().equals("_read")) {
+        for (FunctionBlock fb : cg.getNodes()) {
+            if (fb.getFunction().getName().equals("_read")) {
                 _read = fb;
                 break;
             }
@@ -827,13 +1011,14 @@ public class BackwardAnalysisRunner {
         this.workList.add(findFunction("try_print_file_open"));
         this.workList.add(findFunction("_read"));
 
-        for(Function fb: this.workList){
-            LogConsole.log(fb.getName()+"\n");
+        for (Function fb : this.workList) {
+            LogConsole.log(fb.getName() + "\n");
         }
         LogConsole.log("===End Print work list:  ===\n");
 
     }
-    private void makeReadPath_2_29(){
+
+    private void makeReadPath_2_29() {
         //objdump2.29
         Callgraph cg = this.module.getCallgraph();
 
@@ -846,13 +1031,14 @@ public class BackwardAnalysisRunner {
         this.workList.add(findFunction("try_print_file_open"));
         this.workList.add(findFunction("_read"));
 
-        for(Function fb: this.workList){
-            LogConsole.log(fb.getName()+"\n");
+        for (Function fb : this.workList) {
+            LogConsole.log(fb.getName() + "\n");
         }
         LogConsole.log("===End Print work list:  ===\n");
 
     }
-    private void makeReadPath_17122(){
+
+    private void makeReadPath_17122() {
         //objdump2.29
         Callgraph cg = this.module.getCallgraph();
 
@@ -860,7 +1046,6 @@ public class BackwardAnalysisRunner {
 
 
         LogConsole.log("===Print work list:  ===\n");
-
 
 
         this.workList.add(findFunction("display_any_bfd"));
@@ -868,13 +1053,14 @@ public class BackwardAnalysisRunner {
         this.workList.add(findFunction("disassemble_section"));
         this.workList.add(findFunction("try_print_file_open"));
         this.workList.add(findFunction("_read"));
-        for(Function fb: this.workList){
-            LogConsole.log(fb.getName()+"\n");
+        for (Function fb : this.workList) {
+            LogConsole.log(fb.getName() + "\n");
         }
         LogConsole.log("===End Print work list:  ===\n");
 
     }
-    private void makeReadPath_16830(){
+
+    private void makeReadPath_16830() {
         //objdump2.29
         Callgraph cg = this.module.getCallgraph();
 
@@ -886,23 +1072,24 @@ public class BackwardAnalysisRunner {
         this.workList.add(findFunction("main"));
         this.workList.add(findFunction("process_object"));
         this.workList.add(findFunction("fread"));
-        for(Function fb: this.workList){
-            LogConsole.log(fb.getName()+"\n");
+        for (Function fb : this.workList) {
+            LogConsole.log(fb.getName() + "\n");
         }
         LogConsole.log("===End Print work list:  ===\n");
 
     }
-    private void getParents(FunctionBlock fb, List<FunctionBlock> fbList){
+
+    private void getParents(FunctionBlock fb, List<FunctionBlock> fbList) {
         fbList.add(fb);
-        for(FunctionBlock parent: fb.getParents()){
+        for (FunctionBlock parent : fb.getParents()) {
             getParents(parent, fbList);
-            if(parent.getFunction().getName().equals("main")) return;
+            if (parent.getFunction().getName().equals("main")) return;
         }
     }
 
 
     //for CVE-2017-16829
-    private void makeCallGraph_CVE_16829(){
+    private void makeCallGraph_CVE_16829() {
         //for 2.29.1
         //for CVE-2017-16828
         //call trace
@@ -934,13 +1121,13 @@ public class BackwardAnalysisRunner {
     }
 
 
-    private void makeCallGraph_CVE_9755(){
+    private void makeCallGraph_CVE_9755() {
         //for 2.29.1
         //for CVE-2017-9755
         //call trace
         Map<String, Pair<String, Address>> calleeCallerMap = new HashMap<>();
         Pair<String, Address> fp0 = new Pair<>("print_insn", new Address(0x808FC66));
-        Pair<String, Address> fp1 = new Pair<>("disassemble_section", new Address(0x804D5FB ));
+        Pair<String, Address> fp1 = new Pair<>("disassemble_section", new Address(0x804D5FB));
         Pair<String, Address> fp2 = new Pair<>("bfd_map_over_sections", new Address(0x809D189));
         Pair<String, Address> fp3 = new Pair<>("dump_bfd", new Address(0x804F35B));
         Pair<String, Address> fp4 = new Pair<>("display_any_bfd", new Address(0x804f99b));
@@ -959,13 +1146,13 @@ public class BackwardAnalysisRunner {
         this.calleeCallerMap = calleeCallerMap;
     }
 
-    private void makeCallGraph_CVE_17122(){
+    private void makeCallGraph_CVE_17122() {
         //for 2.29.1
         //for CVE-2017-9755
         //call trace
         Map<String, Pair<String, Address>> calleeCallerMap = new HashMap<>();
-        Pair<String, Address> fp0 = new Pair<>("coff_real_object_p", new Address(0x8100743 ));
-        Pair<String, Address> fp1 = new Pair<>("pe_bfd_object_p", new Address(0x80ef029 ));//
+        Pair<String, Address> fp0 = new Pair<>("coff_real_object_p", new Address(0x8100743));
+        Pair<String, Address> fp1 = new Pair<>("pe_bfd_object_p", new Address(0x80ef029));//
         Pair<String, Address> fp2 = new Pair<>("bfd_check_format_matches", new Address(0x8095b0f));
         Pair<String, Address> fp3 = new Pair<>("display_any_bfd", new Address(0x804f84d));
         Pair<String, Address> fp4 = new Pair<>("display_file", new Address(0x805031e));
@@ -981,15 +1168,28 @@ public class BackwardAnalysisRunner {
         this.calleeCallerMap = calleeCallerMap;
     }
 
-    private void makeCallGraph_CVE_16830(){
+    private void makeCallGraph_CVE_16830() {
         //for 2.29.1
         //for CVE-2017-9755
         //call trace
         Map<String, Pair<String, Address>> calleeCallerMap = new HashMap<>();
         Pair<String, Address> fp0 = new Pair<>("process_object", new Address(0x807e357));
-        Pair<String, Address> fp1 = new Pair<>("main", new Address(0x8082824 ));
+        Pair<String, Address> fp1 = new Pair<>("main", new Address(0x8082824));
         calleeCallerMap.put("sub_809DBB0", fp0);
         calleeCallerMap.put("process_object", fp1);
         this.calleeCallerMap = calleeCallerMap;
+    }
+
+    private ArrayList<Triplet<Address, Address, Address>> makeCallGraph(ArrayList<Triplet<String, String, String>> calleeCallerTris) {
+        ArrayList<Triplet<Address, Address, Address>> calleeCallerList = new ArrayList<>();
+        for (Triplet<String, String, String> tri : calleeCallerTris) {
+            Address callerAddress = new Address(Integer.decode(tri.getValue0()));
+            Address calleeAddress = new Address(Integer.decode(tri.getValue1()));
+            Address callPointAddress = new Address(Integer.decode(tri.getValue2()));
+
+            calleeCallerList.add(new Triplet<Address, Address, Address>(callerAddress, calleeAddress, callPointAddress));
+        }
+        return calleeCallerList;
+
     }
 }

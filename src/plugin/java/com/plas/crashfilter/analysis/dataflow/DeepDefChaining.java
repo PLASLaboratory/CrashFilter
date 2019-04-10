@@ -48,7 +48,7 @@ public class DeepDefChaining  {
         createUseDefChain();
         Set<InstructionGraphNode> inputSet = new HashSet<>(this.inputInstructions);
         resultSet = new HashSet<>();
-        //getDeepDefSet(inputSet);
+        getDeepDefSet(inputSet);
         //this.result = new ArrayList<>(this.resultSet);
         LogConsole.log("End DeepDef analysis\n");
     }

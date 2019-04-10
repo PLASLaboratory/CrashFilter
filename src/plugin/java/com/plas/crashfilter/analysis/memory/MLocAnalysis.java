@@ -1,6 +1,7 @@
 package plugin.java.com.plas.crashfilter.analysis.memory;
 
 import com.google.security.zynamics.binnavi.API.disassembly.Function;
+import com.google.security.zynamics.binnavi.API.gui.LogConsole;
 import com.google.security.zynamics.binnavi.API.reil.mono.*;
 import plugin.java.com.plas.crashfilter.analysis.helper.HeapChecker;
 import plugin.java.com.plas.crashfilter.analysis.ipa.CallStackCleaner;
@@ -24,6 +25,7 @@ public class MLocAnalysis {
 	}
 	public IStateVector<InstructionGraphNode, MLocLatticeElement> mLocAnalysis() throws MLocException
 	{
+
 		MLocLattice lattice;
 		IStateVector<InstructionGraphNode, MLocLatticeElement> startVector;
 		IStateVector<InstructionGraphNode, MLocLatticeElement> endVector;
@@ -37,9 +39,10 @@ public class MLocAnalysis {
 		startVector = initializeState(graph);
 		transferFunction = new MLocTransferFunction();
 		walker = new DownWalker<InstructionGraphNode>();
-
+        LogConsole.log("why?");
 		solver = new MonotoneSolver<InstructionGraphNode, MLocLatticeElement, Object, MLocLattice>( graph, lattice, startVector, transferFunction, walker );
 		endVector = solver.solve();
+		LogConsole.log("end?");
 		return endVector;
 	}
 	 

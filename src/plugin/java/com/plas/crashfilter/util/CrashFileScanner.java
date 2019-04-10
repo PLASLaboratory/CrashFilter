@@ -1,10 +1,11 @@
 package plugin.java.com.plas.crashfilter.util;
 
-import com.google.security.zynamics.binnavi.API.disassembly.Function;
 import com.google.security.zynamics.binnavi.API.disassembly.FunctionBlock;
 import com.google.security.zynamics.binnavi.API.disassembly.Module;
 import com.google.security.zynamics.binnavi.API.gui.LogConsole;
 import com.google.security.zynamics.binnavi.API.helpers.MessageBox;
+import javafx.util.Pair;
+import org.javatuples.Triplet;
 
 import java.io.*;
 import java.util.*;
@@ -175,5 +176,34 @@ public class CrashFileScanner {
         }
 
         return true;
+    }
+
+    public static ArrayList<Triplet<String, String, String>> parseCallTraceLog(File file){
+        //Fisrt is caller function's address, second is point of call.
+        ArrayList<Triplet<String, String, String>> calleeCaller = new ArrayList<>();
+        //Map<String, ArrayList<Pair<String, String>>> calleeCaller = new HashMap<>();
+        BufferedReader br;
+        try{
+            br = new BufferedReader(new FileReader(file));
+            while(br.ready()){
+                StringTokenizer st = new StringTokenizer(br.readLine(), ":");
+                String caller, callAddress, callee;
+                caller = st.nextToken();
+                callAddress = st.nextToken();
+                callee = st.nextToken();
+
+                Triplet<String, String, String> tri = new Triplet<>(caller, callee, callAddress);
+                calleeCaller.add(tri);
+
+            }
+            br.close();
+
+
+        }catch (FileNotFoundException fe){
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return calleeCaller;
     }
 }
