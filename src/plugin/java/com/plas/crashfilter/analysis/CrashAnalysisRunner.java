@@ -208,7 +208,6 @@ public class CrashAnalysisRunner {
             // NORMAL은 크래시가 일어난 함수이고
             //FUNCTIONAnalysis는 크래시가 아닌 함수 단위 분석
         case NORMAL:
-
             if (exploitableAnalysis.isTaintSink()) {
                 makeView(crashPointToFuncAddr, viewIndex, crashPointAddress, curFunc, exploitableAnalysis);
                 dagnerousness = exploitableAnalysis.getDangerousness();
@@ -341,8 +340,8 @@ public class CrashAnalysisRunner {
         List<Function> calleeFunction = getCallee(graph, curFunc);
         Map<Long, CrashPoint> crashPointToFuncAddr = new HashMap<Long, CrashPoint>();
 
-        Dangerousness dangerousness_g = Dangerousness.NE;
-        dangerousness_g = glovalVariableAnalysis(curFunc, calleeFunction, crashPointToFuncAddr);
+
+        Dangerousness dangerousness_g = glovalVariableAnalysis(curFunc, calleeFunction, crashPointToFuncAddr);
 
         Dangerousness dangerousness_f = Dangerousness.NE;
 

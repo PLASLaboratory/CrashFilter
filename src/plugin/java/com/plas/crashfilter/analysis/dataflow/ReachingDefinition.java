@@ -76,7 +76,7 @@ public class ReachingDefinition {
             startVector.setState(defInst1, state);
 
         }
-        isEqual(startVectorAfter, startVector);
+        //isEqual(startVectorAfter, startVector);
         return startVector;
     }
 
